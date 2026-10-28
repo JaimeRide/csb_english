@@ -7,7 +7,6 @@
  */
 
 const EJERCICIOS_DESCANSO = 20;  // ejercicios hasta que el robot se sobrecarga y pide descanso
-const PAUSA_PALABRAS = 100;      // ms de silencio entre palabra y palabra al leer frases
 const TODOS = "all";
 // Nombre y orden de los tipos conocidos; los demás van al final tal cual
 const NOMBRES_TIPO = {color: "Colours", classroom: "Classroom", animal: "Animals",
@@ -147,8 +146,14 @@ function componerDemostrativo(demo, tarjeta) {
 }
 
 /* ---------- Voz ---------- */
+/* El robot habla con audios ya generados (audio/*.ogg, voz de Piper con efecto robótico,
+ * creados por actualizar_web.py). Si falta alguno, se usa la voz del dispositivo. */
 
-const voz = {elegida: null, turno: 0, pendiente: null};
+const AUDIOS = new Set(window.DATOS.audios || []);
+const voz = {elegida: null, turno: 0, pendiente: null, audio: null};
+
+/** 'These are the pencil cases' -> 'these_are_the_pencil_cases' (igual que en actualizar_web.py). */
+const claveAudio = texto => (texto.toLowerCase().match(/[a-z]+/g) || []).join("_");
 
 function elegirVoz() {
   const voces = speechSynthesis.getVoices();
@@ -162,49 +167,61 @@ if ("speechSynthesis" in window) {
 /** Corta lo que se esté diciendo (avisando a quien lo pidió). */
 function callar() {
   voz.turno++;
+  if (voz.audio) {
+    voz.audio.pause();
+    voz.audio = null;
+  }
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   const pendiente = voz.pendiente;
   voz.pendiente = null;
   if (pendiente) pendiente(true);
 }
 
-/** Lee el texto en inglés, palabra a palabra con una pequeña pausa. alTerminar(cortado). */
+/** Dice el texto en inglés. alTerminar(cortado) se llama al acabar o si se corta. */
 function hablar(texto, alTerminar) {
   callar();
   const turno = voz.turno;
   voz.pendiente = alTerminar;
-  const palabras = texto.toLowerCase().match(/[a-z']+/g) || [];
   const terminar = () => {
     if (turno !== voz.turno) return;
     voz.pendiente = null;
+    voz.audio = null;
     alTerminar(false);
   };
+  const clave = claveAudio(texto);
+  if (!AUDIOS.has(clave)) return hablarDispositivo(texto, turno, terminar);
+
+  const audio = new Audio(`audio/${clave}.ogg`);
+  voz.audio = audio;
+  const planB = () => { if (turno === voz.turno && voz.audio === audio) hablarDispositivo(texto, turno, terminar); };
+  audio.onended = terminar;
+  audio.onerror = planB;
+  audio.play().catch(planB);
+}
+
+/** Voz del dispositivo, con la frase entera de una vez (por palabras queda muy cortado). */
+function hablarDispositivo(texto, turno, terminar) {
+  voz.audio = null;
   if (!("speechSynthesis" in window)) return setTimeout(terminar, 300);
-  let i = 0;
-  const siguiente = () => {
-    if (turno !== voz.turno) return;
-    if (i >= palabras.length) return terminar();
-    const frase = new SpeechSynthesisUtterance(palabras[i++]);
-    frase.lang = voz.elegida ? voz.elegida.lang : "en-GB";
-    if (voz.elegida) frase.voice = voz.elegida;
-    frase.rate = 0.85;
-    let hecho = false;
-    const fin = () => {
-      if (hecho) return;
-      hecho = true;
-      clearTimeout(reloj);
-      setTimeout(siguiente, PAUSA_PALABRAS);
-    };
-    const reloj = setTimeout(fin, 1500 + 150 * frase.text.length);  // por si el navegador no avisa
-    frase.onend = fin;
-    frase.onerror = fin;
-    try {
-      speechSynthesis.speak(frase);
-    } catch (error) {
-      fin();  // si el navegador no puede hablar, se sigue como si hubiera terminado
-    }
+  const frase = new SpeechSynthesisUtterance(texto.toLowerCase());
+  frase.lang = voz.elegida ? voz.elegida.lang : "en-GB";
+  if (voz.elegida) frase.voice = voz.elegida;
+  frase.rate = 0.85;
+  let hecho = false;
+  const fin = () => {
+    if (hecho) return;
+    hecho = true;
+    clearTimeout(reloj);
+    if (turno === voz.turno) terminar();
   };
-  siguiente();
+  const reloj = setTimeout(fin, 2000 + 120 * texto.length);  // por si el navegador no avisa
+  frase.onend = fin;
+  frase.onerror = fin;
+  try {
+    speechSynthesis.speak(frase);
+  } catch (error) {
+    fin();
+  }
 }
 
 /* ---------- Robot ---------- */
