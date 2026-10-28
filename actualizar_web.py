@@ -37,6 +37,31 @@ sys.path.insert(0, str(TARJETAS))
 from tarjetas import DEMOSTRATIVOS, SOLO_PLURAL, icono_robot, plural  # noqa: E402
 
 
+def bandera_reino_unido(tam):
+    """Union Jack (proporciones oficiales 60x30), estirada a un cuadrado de tam x tam."""
+    k = 20  # se dibuja a 1200x600 y se reduce
+    azul, rojo, blanco = (1, 33, 105, 255), (200, 16, 46, 255), (255, 255, 255, 255)
+    bandera = Image.new("RGBA", (60 * k, 30 * k), azul)
+    d = ImageDraw.Draw(bandera)
+    diagonales = [((0, 0), (60 * k, 30 * k)), ((60 * k, 0), (0, 30 * k))]
+    for linea in diagonales:
+        d.line(linea, fill=blanco, width=6 * k)
+    # Las diagonales rojas van desplazadas: solo se ve media franja en cada triángulo
+    rojas = Image.new("RGBA", bandera.size, (0, 0, 0, 0))
+    for linea in diagonales:
+        ImageDraw.Draw(rojas).line(linea, fill=rojo, width=4 * k)
+    mascara = Image.new("L", bandera.size, 0)
+    for triangulo in [[(30, 15), (60, 15), (60, 30)], [(30, 15), (30, 30), (0, 30)],
+                      [(30, 15), (0, 15), (0, 0)], [(30, 15), (30, 0), (60, 0)]]:
+        ImageDraw.Draw(mascara).polygon([(x * k, y * k) for x, y in triangulo], fill=255)
+    bandera.paste(rojas, mask=Image.composite(rojas.getchannel("A"), mascara, mascara))
+    d.rectangle((25 * k, 0, 35 * k, 30 * k), fill=blanco)   # cruz de San Jorge con borde blanco
+    d.rectangle((0, 10 * k, 60 * k, 20 * k), fill=blanco)
+    d.rectangle((27 * k, 0, 33 * k, 30 * k), fill=rojo)
+    d.rectangle((0, 12 * k, 60 * k, 18 * k), fill=rojo)
+    return bandera.resize((tam, tam), Image.LANCZOS)
+
+
 def clave_audio(texto):
     """'These are the pencil cases' -> 'these_are_the_pencil_cases' (igual que en app.js)."""
     return "_".join(re.findall(r"[a-z]+", texto.lower()))
@@ -125,13 +150,9 @@ def main():
     mano = Image.open(TARJETAS / "icons" / "hand_this.png").rotate(45, resample=Image.BICUBIC, expand=True)
     mano.crop(mano.getbbox()).save(IMG / "icons" / "hand_this_horizontal.png")
 
-    # Iconos de la app: el robot delante de la bandera de Inglaterra (cruz roja de San Jorge)
+    # Iconos de la app: el robot delante de la bandera del Reino Unido
     for tam in (192, 512):
-        fondo = Image.new("RGBA", (tam, tam), (255, 255, 255, 255))
-        cruz = ImageDraw.Draw(fondo)
-        ancho = tam * 0.2
-        cruz.rectangle(((tam - ancho) / 2, 0, (tam + ancho) / 2, tam), fill=(206, 17, 36, 255))
-        cruz.rectangle((0, (tam - ancho) / 2, tam, (tam + ancho) / 2), fill=(206, 17, 36, 255))
+        fondo = bandera_reino_unido(tam)
         robot = icono_robot(False, int(tam * 0.7), como_foto=False)
         fondo.alpha_composite(robot, ((tam - robot.width) // 2, (tam - robot.height) // 2))
         fondo.save(IMG / f"app-{tam}.png")
