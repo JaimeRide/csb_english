@@ -1,5 +1,5 @@
 // Generado por actualizar_web.py: no editar a mano
-const CACHE = "ingles-86e75a8edd";
+const CACHE = "ingles-9f5c6ab97c";
 const ARCHIVOS = [
  "./",
  "index.html",
@@ -25,6 +25,9 @@ const ARCHIVOS = [
  "img/classroom/color_blue.png",
  "img/classroom/color_brown.png",
  "img/classroom/color_green.png",
+ "img/classroom/color_grey.png",
+ "img/classroom/color_orange.png",
+ "img/classroom/color_pink.png",
  "img/classroom/color_red.png",
  "img/classroom/color_white.png",
  "img/classroom/color_yellow.png",
@@ -41,11 +44,14 @@ const ARCHIVOS = [
  "audio/desk.ogg",
  "audio/glue_stick.ogg",
  "audio/green.ogg",
+ "audio/grey.ogg",
  "audio/marker.ogg",
  "audio/notebook.ogg",
+ "audio/orange.ogg",
  "audio/paper.ogg",
  "audio/pencil.ogg",
  "audio/pencil_case.ogg",
+ "audio/pink.ogg",
  "audio/red.ogg",
  "audio/scissors.ogg",
  "audio/sharpener.ogg",

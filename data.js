@@ -1,6 +1,6 @@
 // Generado por actualizar_web.py: no editar a mano
 window.DATOS = {
- "version": "86e75a8edd",
+ "version": "9f5c6ab97c",
  "tarjetas": [
   {
    "tipo": "classroom",
@@ -89,6 +89,21 @@ window.DATOS = {
   },
   {
    "tipo": "color",
+   "nombre": "grey",
+   "archivo": "img/classroom/color_grey.png"
+  },
+  {
+   "tipo": "color",
+   "nombre": "orange",
+   "archivo": "img/classroom/color_orange.png"
+  },
+  {
+   "tipo": "color",
+   "nombre": "pink",
+   "archivo": "img/classroom/color_pink.png"
+  },
+  {
+   "tipo": "color",
    "nombre": "red",
    "archivo": "img/classroom/color_red.png"
   },
@@ -113,11 +128,14 @@ window.DATOS = {
   "desk",
   "glue_stick",
   "green",
+  "grey",
   "marker",
   "notebook",
+  "orange",
   "paper",
   "pencil",
   "pencil_case",
+  "pink",
   "red",
   "scissors",
   "sharpener",
