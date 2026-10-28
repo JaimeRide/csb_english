@@ -791,5 +791,11 @@ precargar().then(() => {
 });
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  navigator.serviceWorker.register("sw.js");
+  // Cuando se publica una versión nueva, la app se recarga sola al recibirla
+  // (sin esto, la versión nueva solo se vería al volver a abrir la app)
+  const habiaVersion = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (habiaVersion) location.reload();
+  });
+  navigator.serviceWorker.register("sw.js").then(r => r.update());
 }
