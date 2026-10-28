@@ -1,6 +1,6 @@
 {
-  "name": "Inglés",
-  "short_name": "Inglés",
+  "name": "CSB English",
+  "short_name": "CSB English",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
