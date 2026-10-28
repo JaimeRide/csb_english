@@ -15,6 +15,9 @@ const SOLO_PLURAL = new Set(["scissors"]);  // nombres sin singular
 // Demostrativos: [palabra, verbo, plural, cerca]
 const DEMOSTRATIVOS = [["this", "is", false, true], ["these", "are", true, true],
                        ["that", "is", false, false], ["those", "are", true, false]];
+// Niveles de Demonstratives: qué pasos de la frase hay que elegir (0 demostrativo, 1 verbo, 2 objeto);
+// el resto ya viene puesto
+const NIVELES_DEMOSTRATIVOS = {1: [1], 2: [0], 3: [0, 1, 2]};
 
 const TARJETAS = window.DATOS.tarjetas;
 
@@ -597,8 +600,9 @@ class VistaDemostrativos {
                     crear("div", {class: "fila-botones"}, this.accion, this.robot.el));
   }
 
-  entrar(tarjetas) {
+  entrar(tarjetas, nivel = 3) {
     this.tarjetas = tarjetas;
+    this.pasos = NIVELES_DEMOSTRATIVOS[nivel];
     this.frases = [];
     this.aciertos = this.hechas = 0;
     this.siguiente();
@@ -607,7 +611,6 @@ class VistaDemostrativos {
   siguiente() {
     if (!this.frases.length) this.frases = barajar(frasesDemostrativos(this.tarjetas));
     this.actual = this.frases.pop();
-    this.elegido = [null, null, null];
     this.corregida = false;
     this.robot.ponerAnimo(null);
 
@@ -625,6 +628,8 @@ class VistaDemostrativos {
     // Demostrativos agrupados por cerca (This/These) y lejos (That/Those)
     this.opciones = [["This", "These", "That", "Those"], ["is", "are"], barajar([this.actual.objeto, otro])];
     this.correctas = [this.actual.demo, this.actual.verbo, this.actual.objeto];
+    // Los pasos que no se eligen en este nivel ya vienen puestos
+    this.elegido = this.correctas.map((c, i) => this.pasos.includes(i) ? null : c);
 
     this.lienzo = componerDemostrativo(this.actual.demo.toLowerCase(), tarjeta);
     this.marco.replaceChildren(this.lienzo);
@@ -652,6 +657,7 @@ class VistaDemostrativos {
 
   mostrar() {
     this.filas.forEach((fila, i) => {
+      fila.style.display = this.pasos.includes(i) ? "" : "none";  // solo las filas de este nivel
       const activo = i === 0 || Boolean(this.elegido[i - 1]);  // bloqueado hasta elegir el anterior
       fila.replaceChildren(...this.opciones[i].map(t => {
         const b = crear("button", {onclick: () => this.elegir(i, t)}, t);
@@ -736,7 +742,7 @@ function construirMenu() {
   });
   const subsecciones = [[TODOS, "All"], ...tipos.map(t => [t, nombreTipo(t)])];
   const apartados = [
-    ["Grammar", [["grammar", "demonstratives", "Demonstratives"]]],
+    ["Grammar", Object.keys(NIVELES_DEMOSTRATIVOS).map(n => ["grammar", n, `Demonstratives · Level ${n}`])],
     ["Vocabulary", subsecciones.map(([t, n]) => ["vocab", t, n])],
     ["Listening", subsecciones.map(([t, n]) => ["listen", t, n])],
   ];
@@ -758,7 +764,7 @@ function abrirSeccion(vista, tipo, titulo, boton) {
   document.getElementById("centro").replaceChildren(vistaActual.el);
   const tarjetas = vista === "grammar" ? TARJETAS.filter(t => t.tipo === "classroom")
                                        : TARJETAS.filter(t => tipo === TODOS || t.tipo === tipo);
-  vistaActual.entrar(tarjetas);
+  vistaActual.entrar(tarjetas, vista === "grammar" ? Number(tipo) : undefined);
   abrirMenu(false);
 }
 
