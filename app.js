@@ -149,11 +149,18 @@ function componerDemostrativo(demo, tarjeta) {
 }
 
 /* ---------- Voz ---------- */
-/* El robot habla con audios ya generados (audio/*.ogg, voz de Piper con efecto robótico,
+/* El robot habla con audios ya generados (audio/<voz>/*.ogg, voz de Piper con efecto robótico,
  * creados por actualizar_web.py). Si falta alguno, se usa la voz del dispositivo. */
 
-const AUDIOS = new Set(window.DATOS.audios || []);
-const voz = {elegida: null, turno: 0, pendiente: null, audio: null};
+// {alba: Set(claves), alan: Set(claves)}
+const AUDIOS = Object.fromEntries(Object.entries(window.DATOS.audios || {}).map(([v, l]) => [v, new Set(l)]));
+// Robots del selector del principio: voz y adorno de la cara
+const ROBOTS = [{voz: "alba", adorno: "lazo"}, {voz: "alan", adorno: "bigote"}];
+const voz = {elegida: null, turno: 0, pendiente: null, audio: null, robot: leerRobotGuardado()};
+
+function leerRobotGuardado() {
+  try { return localStorage.getItem("robot") || ROBOTS[0].voz; } catch { return ROBOTS[0].voz; }
+}
 
 /** 'These are the pencil cases' -> 'these_are_the_pencil_cases' (igual que en actualizar_web.py). */
 const claveAudio = texto => (texto.toLowerCase().match(/[a-z]+/g) || []).join("_");
@@ -192,9 +199,9 @@ function hablar(texto, alTerminar) {
     alTerminar(false);
   };
   const clave = claveAudio(texto);
-  if (!AUDIOS.has(clave)) return hablarDispositivo(texto, turno, terminar);
+  if (!AUDIOS[voz.robot] || !AUDIOS[voz.robot].has(clave)) return hablarDispositivo(texto, turno, terminar);
 
-  const audio = new Audio(`audio/${clave}.ogg`);
+  const audio = new Audio(`audio/${voz.robot}/${clave}.ogg`);
   voz.audio = audio;
   const planB = () => { if (turno === voz.turno && voz.audio === audio) hablarDispositivo(texto, turno, terminar); };
   audio.onended = terminar;
@@ -229,8 +236,9 @@ function hablarDispositivo(texto, turno, terminar) {
 
 /* ---------- Robot ---------- */
 
-/** Carita de robot en SVG. animo: null, "feliz", "triste" o "sobrecargado". carga: 0-1 de rojo. */
-function svgRobot({animo = null, boca = false, carga = 0} = {}) {
+/** Carita de robot en SVG. animo: null, "feliz", "triste" o "sobrecargado". carga: 0-1 de rojo.
+ * adorno: null, "bigote" o "lazo" (solo en el selector de voz). */
+function svgRobot({animo = null, boca = false, carga = 0, adorno = null} = {}) {
   const id = "c" + Math.random().toString(36).slice(2);
   let ojos = "";
   for (const x of [33, 67]) {
@@ -256,6 +264,15 @@ function svgRobot({animo = null, boca = false, carga = 0} = {}) {
   const bocaSvg = boca
     ? `<rect x="30" y="66" width="40" height="20" rx="6" fill="#282828"/>`
     : `<line x1="30" y1="76" x2="70" y2="76" stroke="#282828" stroke-width="4" stroke-linecap="round"/>`;
+  let adornoSvg = "";
+  if (adorno === "bigote") {
+    adornoSvg = `<path d="M50 63 C44 57 33 58 25 68 C33 66 42 69 50 67 C58 69 67 66 75 68 C67 58 56 57 50 63 Z"
+                       fill="#5a3a1e" stroke="#282828" stroke-width="1.5"/>`;
+  } else if (adorno === "lazo") {
+    adornoSvg = `<g stroke="#282828" stroke-width="2" stroke-linejoin="round" fill="#f06aa0">
+                   <path d="M74 21 L58 11 L60 33 Z"/><path d="M74 21 L90 11 L88 33 Z"/>
+                   <circle cx="74" cy="21" r="5"/></g>`;
+  }
   return `<svg viewBox="0 0 100 100" aria-hidden="true">
     <defs><clipPath id="${id}"><rect x="10" y="20" width="80" height="75" rx="14"/></clipPath></defs>
     <line x1="50" y1="6" x2="50" y2="20" stroke="#282828" stroke-width="4"/>
@@ -265,7 +282,7 @@ function svgRobot({animo = null, boca = false, carga = 0} = {}) {
     <rect x="10" y="20" width="80" height="75" rx="14" fill="#c8d2dc"/>
     <rect x="10" y="${nivel}" width="80" height="${95 - nivel}" fill="#eb3c32" clip-path="url(#${id})"/>
     <rect x="10" y="20" width="80" height="75" rx="14" fill="none" stroke="#282828" stroke-width="4"/>
-    ${ojos}${bocaSvg}</svg>`;
+    ${ojos}${bocaSvg}${adornoSvg}</svg>`;
 }
 
 const SVG_ALTAVOZ = `<svg viewBox="0 0 100 100" aria-hidden="true">
@@ -718,6 +735,39 @@ function mostrarDescanso() {
 // Un segundo después del último ejercicio, para que antes vea si ha acertado
 carga.alSobrecargar = () => setTimeout(mostrarDescanso, 1000);
 
+/* ---------- Selector de robot (voz) ---------- */
+
+/** Al abrir la app se elige el robot: el del lazo (voz femenina) o el del bigote (masculina). */
+function mostrarSelector(alElegir) {
+  const elegir = robot => {
+    document.removeEventListener("keydown", teclaModal, true);
+    fondo.remove();
+    voz.robot = robot.voz;
+    try { localStorage.setItem("robot", robot.voz); } catch { /* sin almacenamiento: no pasa nada */ }
+    hablar("Hello!", () => {});
+    if (alElegir) alElegir();
+  };
+  const teclaModal = e => {
+    const n = Number(e.key);
+    if (n >= 1 && n <= ROBOTS.length) elegir(ROBOTS[n - 1]);
+    else if (e.key === "Enter" || e.key === " ") elegir(ROBOTS.find(r => r.voz === voz.robot) || ROBOTS[0]);
+    e.preventDefault();
+    e.stopPropagation();  // mientras está abierto, el teclado no llega a los ejercicios
+  };
+  const botones = ROBOTS.map(robot => {
+    const b = crear("button", {class: "elegir-robot" + (robot.voz === voz.robot ? " ultimo" : ""),
+                               "aria-label": robot.voz, onclick: () => elegir(robot)});
+    b.innerHTML = svgRobot({adorno: robot.adorno});
+    return b;
+  });
+  const caja = crear("div", {class: "modal selector", role: "dialog"},
+    crear("p", {}, "¿Qué robot quieres?"),
+    crear("div", {class: "robots"}, ...botones));
+  const fondo = crear("div", {class: "modal-fondo"}, caja);
+  document.body.append(fondo);
+  document.addEventListener("keydown", teclaModal, true);
+}
+
 /* ---------- Menú y arranque ---------- */
 
 const vistas = {
@@ -755,6 +805,8 @@ function construirMenu() {
       menu.append(b);
     }
   }
+  menu.append(crear("h2", {}, "Robot"),
+              crear("button", {onclick: () => { abrirMenu(false); mostrarSelector(); }}, "Change robot"));
 }
 
 function abrirSeccion(vista, tipo, titulo, boton) {
@@ -789,7 +841,8 @@ document.addEventListener("keydown", e => {
 
 precargar().then(() => {
   construirMenu();
-  abrirMenu(true);  // al empezar no hay nada elegido: se enseña el menú
+  // Primero se elige robot; después, como no hay nada elegido, se enseña el menú
+  mostrarSelector(() => abrirMenu(true));
 });
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {

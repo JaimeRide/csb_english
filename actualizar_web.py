@@ -7,9 +7,10 @@ Ejecútalo cada vez que añadas o cambies imágenes en tarjetas/:
 - Copia los dibujos de cada subcarpeta (classroom/, ...) a img/<subcarpeta>/.
 - Copia los iconos (manos, brocha) a img/icons/ y deja la mano de "this" ya girada.
 - Genera data.js con la lista de tarjetas.
-- Genera la voz del robot (audio/*.ogg) para cada palabra y cada frase de los
-  demostrativos, con Piper y un efecto robótico. Necesita ../voz/ (modelo y librería);
-  si no está, la app usa la voz del dispositivo.
+- Genera la voz del robot (audio/<voz>/*.ogg) para cada palabra y cada frase de los
+  demostrativos, con Piper y un efecto robótico, una vez por cada voz (femenina y
+  masculina). Necesita ../voz/ (modelos y librería); si no está, la app usa la voz
+  del dispositivo.
 - Genera los iconos de la app (el robot) y sw.js, que guarda todo para usarlo sin internet.
 """
 import hashlib
@@ -26,10 +27,11 @@ TARJETAS = WEB.parent / "tarjetas"
 IMG = WEB / "img"
 AUDIO = WEB / "audio"
 VOZ = WEB.parent / "voz"
-MODELO_VOZ = VOZ / "en_GB-alba-medium.onnx"
-# Ajustes de la voz del robot (si se cambian, se regeneran todos los audios)
-AJUSTES_VOZ = {"modelo": MODELO_VOZ.name, "velocidad": 1.1, "mezcla": 0.35, "anillo_hz": 55.0,
-               "eco_ms": 9.0, "eco": 0.3}
+# Voces que se pueden elegir al abrir la app (el orden es el del selector)
+VOCES = {"alba": "en_GB-alba-medium.onnx", "alan": "en_GB-alan-medium.onnx"}
+# Ajustes del efecto robótico (si se cambian, se regeneran todos los audios)
+AJUSTES_VOZ = {"velocidad": 1.1, "mezcla": 0.35, "anillo_hz": 55.0, "eco_ms": 9.0, "eco": 0.3}
+SALUDO = "Hello!"  # lo dice el robot elegido en el selector
 EXTENSIONES = {".png", ".jpg", ".jpeg", ".webp"}
 
 # El robot se dibuja con la misma función que la versión de escritorio
@@ -69,7 +71,7 @@ def clave_audio(texto):
 
 def textos_a_decir(tarjetas):
     """Todo lo que puede decir el robot: cada palabra y cada frase de los demostrativos."""
-    textos = {t["nombre"] for t in tarjetas}
+    textos = {t["nombre"] for t in tarjetas} | {SALUDO}
     for t in tarjetas:
         if t["tipo"] != "classroom":
             continue
@@ -93,37 +95,40 @@ def efecto_robot(audio, sr, np):
     return salida / (np.max(np.abs(salida)) + 1e-9) * 0.9
 
 
-def generar_audios(textos):
-    """Crea audio/<clave>.ogg para cada texto que falte. Devuelve las claves disponibles."""
-    AUDIO.mkdir(exist_ok=True)
-    sello = AUDIO / "ajustes.json"
-    if not sello.exists() or json.loads(sello.read_text()) != AJUSTES_VOZ:
-        for viejo in AUDIO.glob("*.ogg"):  # han cambiado los ajustes: se rehacen todos
+def generar_audios(textos, nombre_voz):
+    """Crea audio/<voz>/<clave>.ogg para cada texto que falte. Devuelve las claves disponibles."""
+    carpeta = AUDIO / nombre_voz
+    carpeta.mkdir(parents=True, exist_ok=True)
+    modelo = VOZ / VOCES[nombre_voz]
+    ajustes = {"modelo": modelo.name, **AJUSTES_VOZ}
+    sello = carpeta / "ajustes.json"
+    if not sello.exists() or json.loads(sello.read_text()) != ajustes:
+        for viejo in carpeta.glob("*.ogg"):  # han cambiado los ajustes: se rehacen todos
             viejo.unlink()
     claves = {clave_audio(t): t for t in textos}
-    faltan = [c for c in claves if not (AUDIO / f"{c}.ogg").exists()]
+    faltan = [c for c in claves if not (carpeta / f"{c}.ogg").exists()]
     if faltan:
-        if not MODELO_VOZ.exists():
-            print(f"AVISO: no está {MODELO_VOZ}; {len(faltan)} textos usarán la voz del dispositivo")
+        if not modelo.exists():
+            print(f"AVISO: no está {modelo}; {len(faltan)} textos usarán la voz del dispositivo")
         else:
             sys.path.insert(0, str(VOZ / "pylib"))
             import numpy as np
             import soundfile as sf
             from piper import PiperVoice
             from piper.config import SynthesisConfig
-            voz = PiperVoice.load(str(MODELO_VOZ))
+            voz = PiperVoice.load(str(modelo))
             config = SynthesisConfig(length_scale=AJUSTES_VOZ["velocidad"])
             for c in faltan:
                 trozos = list(voz.synthesize(claves[c], syn_config=config))
                 audio = np.concatenate([t.audio_float_array for t in trozos]).astype(np.float32)
                 sr = trozos[0].sample_rate
-                sf.write(AUDIO / f"{c}.ogg", efecto_robot(audio, sr, np), sr, format="OGG", subtype="VORBIS")
-            print(f"{len(faltan)} audios nuevos")
-    sello.write_text(json.dumps(AJUSTES_VOZ))
-    for sobrante in AUDIO.glob("*.ogg"):  # textos que ya no existen
+                sf.write(carpeta / f"{c}.ogg", efecto_robot(audio, sr, np), sr, format="OGG", subtype="VORBIS")
+            print(f"{nombre_voz}: {len(faltan)} audios nuevos")
+    sello.write_text(json.dumps(ajustes))
+    for sobrante in carpeta.glob("*.ogg"):  # textos que ya no existen
         if sobrante.stem not in claves:
             sobrante.unlink()
-    return sorted(p.stem for p in AUDIO.glob("*.ogg"))
+    return sorted(p.stem for p in carpeta.glob("*.ogg"))
 
 
 def main():
@@ -157,12 +162,13 @@ def main():
         fondo.alpha_composite(robot, ((tam - robot.width) // 2, (tam - robot.height) // 2))
         fondo.save(IMG / f"app-{tam}.png")
 
-    audios = generar_audios(textos_a_decir(tarjetas))
+    textos = textos_a_decir(tarjetas)
+    audios = {v: generar_audios(textos, v) for v in VOCES}
 
     # La versión cambia cuando cambia cualquier archivo, para que el móvil se actualice
     estaticos = ["index.html", "styles.css", "app.js", "manifest.webmanifest"]
     archivos = estaticos + sorted(p.relative_to(WEB).as_posix() for p in IMG.rglob("*") if p.is_file())
-    archivos += [f"audio/{a}.ogg" for a in audios]
+    archivos += [f"audio/{v}/{a}.ogg" for v in VOCES for a in audios[v]]
     resumen = hashlib.sha1()
     for a in archivos:
         resumen.update(a.encode())
@@ -193,7 +199,7 @@ self.addEventListener("fetch", e => {{
 }});
 """, encoding="utf-8")
 
-    print(f"{len(tarjetas)} tarjetas, {len(audios)} audios, {len(archivos)} archivos, versión {version}")
+    print(f"{len(tarjetas)} tarjetas, {sum(map(len, audios.values()))} audios, {len(archivos)} archivos, versión {version}")
 
 
 if __name__ == "__main__":

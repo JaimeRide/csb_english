@@ -361,6 +361,16 @@ button {
 .modal svg { width: min(200px, 40vw); height: auto; }
 .modal .uf { color: #d93a2b; font-size: 34px; font-weight: 700; }
 .modal p { margin: 0; font-size: 20px; }
+.selector .robots { display: flex; gap: 24px; }
+.elegir-robot {
+  padding: 10px;
+  background: #f4f6f8;
+  border: 4px solid transparent;
+  border-radius: 18px;
+  cursor: pointer;
+}
+.elegir-robot.ultimo { border-color: var(--amarillo); }
+.elegir-robot svg { width: min(160px, 32vw); }
 .modal .boton { background: var(--amarillo); font-size: 22px; font-weight: 700; padding: 8px 28px; }
 
 /* ---------- Pantallas estrechas (móvil en vertical) ---------- */
