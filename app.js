@@ -253,7 +253,8 @@ function svgRobot({animo = null, boca = false, carga = 0} = {}) {
     }
   }
   const nivel = 95 - 75 * Math.min(carga, 1);
-  const bocaSvg = boca
+  // al acertar o fallar el robot se queda con la boca abierta
+  const bocaSvg = boca || animo === "feliz" || animo === "triste"
     ? `<rect x="30" y="66" width="40" height="20" rx="6" fill="#282828"/>`
     : `<line x1="30" y1="76" x2="70" y2="76" stroke="#282828" stroke-width="4" stroke-linecap="round"/>`;
   return `<svg viewBox="0 0 100 100" aria-hidden="true">
