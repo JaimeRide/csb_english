@@ -19,17 +19,17 @@ import shutil
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 WEB = Path(__file__).resolve().parent
 TARJETAS = WEB.parent / "tarjetas"
 IMG = WEB / "img"
 AUDIO = WEB / "audio"
 VOZ = WEB.parent / "voz"
-MODELO_VOZ = VOZ / "en_GB-alan-medium.onnx"
+MODELO_VOZ = VOZ / "en_GB-jenny_dioco-medium.onnx"
 # Ajustes de la voz del robot (si se cambian, se regeneran todos los audios)
-AJUSTES_VOZ = {"modelo": MODELO_VOZ.name, "velocidad": 1.1, "mezcla": 0.6, "anillo_hz": 55.0,
-               "eco_ms": 9.0, "eco": 0.45}
+AJUSTES_VOZ = {"modelo": MODELO_VOZ.name, "velocidad": 1.1, "mezcla": 0.35, "anillo_hz": 55.0,
+               "eco_ms": 9.0, "eco": 0.3}
 EXTENSIONES = {".png", ".jpg", ".jpeg", ".webp"}
 
 # El robot se dibuja con la misma función que la versión de escritorio
@@ -125,10 +125,14 @@ def main():
     mano = Image.open(TARJETAS / "icons" / "hand_this.png").rotate(45, resample=Image.BICUBIC, expand=True)
     mano.crop(mano.getbbox()).save(IMG / "icons" / "hand_this_horizontal.png")
 
-    # Iconos de la app: el robot sobre fondo amarillo
+    # Iconos de la app: el robot delante de la bandera de Inglaterra (cruz roja de San Jorge)
     for tam in (192, 512):
-        fondo = Image.new("RGBA", (tam, tam), (255, 217, 102, 255))
-        robot = icono_robot(False, int(tam * 0.8), como_foto=False)
+        fondo = Image.new("RGBA", (tam, tam), (255, 255, 255, 255))
+        cruz = ImageDraw.Draw(fondo)
+        ancho = tam * 0.2
+        cruz.rectangle(((tam - ancho) / 2, 0, (tam + ancho) / 2, tam), fill=(206, 17, 36, 255))
+        cruz.rectangle((0, (tam - ancho) / 2, tam, (tam + ancho) / 2), fill=(206, 17, 36, 255))
+        robot = icono_robot(False, int(tam * 0.7), como_foto=False)
         fondo.alpha_composite(robot, ((tam - robot.width) // 2, (tam - robot.height) // 2))
         fondo.save(IMG / f"app-{tam}.png")
 

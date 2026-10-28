@@ -701,7 +701,7 @@ function mostrarDescanso() {
   caja.append(
     crear("div", {class: "uf"}, "¡Uf, qué calor!"),
     crear("p", {}, `¡Has hecho ${EJERCICIOS_DESCANSO} ejercicios!`),
-    crear("p", {}, "Necesito un descanso 😴"),
+    crear("p", {}, "Necesito un descanso"),
     crear("button", {class: "boton", onclick: cerrar}, "¡Vale!"));
   const fondo = crear("div", {class: "modal-fondo"}, caja);
   document.body.append(fondo);
