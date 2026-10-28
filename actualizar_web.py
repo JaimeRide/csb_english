@@ -26,7 +26,7 @@ TARJETAS = WEB.parent / "tarjetas"
 IMG = WEB / "img"
 AUDIO = WEB / "audio"
 VOZ = WEB.parent / "voz"
-MODELO_VOZ = VOZ / "en_GB-jenny_dioco-medium.onnx"
+MODELO_VOZ = VOZ / "en_GB-alba-medium.onnx"
 # Ajustes de la voz del robot (si se cambian, se regeneran todos los audios)
 AJUSTES_VOZ = {"modelo": MODELO_VOZ.name, "velocidad": 1.1, "mezcla": 0.35, "anillo_hz": 55.0,
                "eco_ms": 9.0, "eco": 0.3}
