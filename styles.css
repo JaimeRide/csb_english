@@ -303,6 +303,7 @@ button {
   width: 100%;
   max-width: 1100px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 .caja {
   background: white;
@@ -310,7 +311,7 @@ button {
   border-radius: 10px;
   padding: 10px 12px;
 }
-.caja.pasos { display: flex; flex-direction: column; gap: 6px; flex: 0 1 auto; }
+.caja.pasos { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 1 auto; }
 .caja.frase {
   flex: 1 1 260px;
   display: flex;
@@ -321,7 +322,7 @@ button {
   font-weight: 700;
   min-height: 60px;
 }
-.paso { display: flex; gap: 8px; flex-wrap: wrap; }
+.paso { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .paso button {
   min-height: 44px;
   padding: 4px 12px;
