@@ -805,8 +805,9 @@ function construirMenu() {
       menu.append(b);
     }
   }
-  menu.append(crear("h2", {}, "Robot"),
-              crear("button", {onclick: () => { abrirMenu(false); mostrarSelector(); }}, "Change robot"));
+  // Abajo del todo: elegir otro asistente (otra voz)
+  menu.append(crear("div", {class: "menu-pie"}, crear("h2", {}, "Assistant"),
+              crear("button", {onclick: () => { abrirMenu(false); mostrarSelector(); }}, "Change assistant")));
 }
 
 function abrirSeccion(vista, tipo, titulo, boton) {

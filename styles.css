@@ -81,12 +81,19 @@ button {
   padding-top: max(12px, env(safe-area-inset-top));
   background: var(--menu);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   transform: translateX(-105%);
   transition: transform 0.2s ease;
   z-index: 20;
   box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
 }
 .menu.abierto { transform: none; }
+.menu-pie {
+  margin-top: auto;  /* se queda abajo del todo */
+  padding-top: 6px;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+}
 
 .fondo-menu {
   position: fixed;
