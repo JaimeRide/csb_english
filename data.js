@@ -1,6 +1,6 @@
 // Generado por actualizar_web.py: no editar a mano
 window.DATOS = {
- "version": "891fe322fe",
+ "version": "7ed1a62dfa",
  "tarjetas": [
   {
    "tipo": "classroom",

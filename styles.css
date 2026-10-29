@@ -208,17 +208,7 @@ button {
 
 /* ---------- Tarjeta (Vocabulary) ---------- */
 
-.modos { display: flex; gap: 8px; }
-.modos button {
-  width: 56px;
-  height: 44px;
-  padding: 4px;
-  border: 2px solid var(--borde);
-  border-radius: 10px;
-  background: white;
-}
-.modos button.activo { background: var(--amarillo); }
-.modos svg { width: 100%; height: 100%; }
+.boton-ojo svg { display: block; width: 40px; height: 24px; }
 
 .tarjeta {
   display: flex;

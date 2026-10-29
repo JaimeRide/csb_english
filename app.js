@@ -375,14 +375,10 @@ class VistaVocabulario {
     this.pos = 0;
     this.pista = 0;  // modo test: 0 = "?", 1 = iniciales "P***** C***", 2 = palabra entera
 
-    this.botonesModo = {};
-    const modos = crear("div", {class: "modos"});
-    for (const [valor, tachado, etiqueta] of [["entrenamiento", false, "Entrenamiento"], ["test", true, "Test"]]) {
-      const b = crear("button", {"aria-label": etiqueta, onclick: () => this.cambiarModo(valor)});
-      b.innerHTML = svgOjo(tachado);
-      this.botonesModo[valor] = b;
-      modos.append(b);
-    }
+    // Un solo botón para cambiar de modo: enseña el ojo del modo al que se pasa
+    // (con la palabra a la vista, ojo tachado; en modo test, ojo normal)
+    this.botonOjo = crear("button", {class: "boton boton-ojo",
+      onclick: () => this.cambiarModo(this.modo === "test" ? "entrenamiento" : "test")});
 
     this.dibujo = crear("div", {class: "dibujo"});
     this.palabra = crear("div", {class: "palabra"});
@@ -396,10 +392,10 @@ class VistaVocabulario {
       crear("button", {class: "boton", onclick: () => this.mover(-1), "aria-label": "Anterior"}, "◀"),
       this.contador,
       crear("button", {class: "boton", onclick: () => this.mover(1), "aria-label": "Siguiente"}, "▶"),
-      crear("button", {class: "boton", onclick: () => this.empezar(), "aria-label": "Barajar"}, "↻"),
+      this.botonOjo,
       this.robot.el);
 
-    this.el = crear("section", {class: "vista"}, modos, this.hueco, controles);
+    this.el = crear("section", {class: "vista"}, this.hueco, controles);
   }
 
   entrar(tarjetas) {
@@ -447,7 +443,9 @@ class VistaVocabulario {
   }
 
   mostrar() {
-    for (const [valor, b] of Object.entries(this.botonesModo)) b.classList.toggle("activo", valor === this.modo);
+    const test = this.modo === "test";
+    this.botonOjo.innerHTML = svgOjo(!test);
+    this.botonOjo.setAttribute("aria-label", test ? "Ver la palabra" : "Ocultar la palabra");
     if (!this.mazo.length) return;
     const carta = this.carta();
     this.dibujo.replaceChildren(dibujoTarjeta(carta));
@@ -473,7 +471,6 @@ class VistaVocabulario {
     if (e.key === " ") this.avanzar();
     else if (e.key === "ArrowRight") this.mover(1);
     else if (e.key === "ArrowLeft") this.mover(-1);
-    else if (e.key === "r" || e.key === "R") this.empezar();
     else return false;
     return true;
   }
