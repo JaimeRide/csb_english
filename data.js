@@ -1,6 +1,6 @@
 // Generado por actualizar_web.py: no editar a mano
 window.DATOS = {
- "version": "c9769d6509",
+ "version": "472a04a65e",
  "tarjetas": [
   {
    "tipo": "classroom",
@@ -116,6 +116,56 @@ window.DATOS = {
    "tipo": "color",
    "nombre": "yellow",
    "archivo": "img/classroom/color_yellow.png"
+  },
+  {
+   "tipo": "number",
+   "nombre": "eight",
+   "archivo": "img/numbers/number_eight.png"
+  },
+  {
+   "tipo": "number",
+   "nombre": "five",
+   "archivo": "img/numbers/number_five.png"
+  },
+  {
+   "tipo": "number",
+   "nombre": "four",
+   "archivo": "img/numbers/number_four.png"
+  },
+  {
+   "tipo": "number",
+   "nombre": "nine",
+   "archivo": "img/numbers/number_nine.png"
+  },
+  {
+   "tipo": "number",
+   "nombre": "one",
+   "archivo": "img/numbers/number_one.png"
+  },
+  {
+   "tipo": "number",
+   "nombre": "seven",
+   "archivo": "img/numbers/number_seven.png"
+  },
+  {
+   "tipo": "number",
+   "nombre": "six",
+   "archivo": "img/numbers/number_six.png"
+  },
+  {
+   "tipo": "number",
+   "nombre": "ten",
+   "archivo": "img/numbers/number_ten.png"
+  },
+  {
+   "tipo": "number",
+   "nombre": "three",
+   "archivo": "img/numbers/number_three.png"
+  },
+  {
+   "tipo": "number",
+   "nombre": "two",
+   "archivo": "img/numbers/number_two.png"
   }
  ],
  "audios": {
@@ -127,12 +177,17 @@ window.DATOS = {
    "chair",
    "computer",
    "desk",
+   "eight",
+   "five",
+   "four",
    "glue_stick",
    "green",
    "grey",
    "hello",
    "marker",
+   "nine",
    "notebook",
+   "one",
    "orange",
    "paper",
    "pencil",
@@ -140,8 +195,11 @@ window.DATOS = {
    "pink",
    "red",
    "scissors",
+   "seven",
    "sharpener",
+   "six",
    "tape",
+   "ten",
    "that_is_the_backpack",
    "that_is_the_chair",
    "that_is_the_computer",
@@ -192,6 +250,8 @@ window.DATOS = {
    "those_are_the_scissors",
    "those_are_the_sharpeners",
    "those_are_the_tapes",
+   "three",
+   "two",
    "white",
    "yellow"
   ],
@@ -203,12 +263,17 @@ window.DATOS = {
    "chair",
    "computer",
    "desk",
+   "eight",
+   "five",
+   "four",
    "glue_stick",
    "green",
    "grey",
    "hello",
    "marker",
+   "nine",
    "notebook",
+   "one",
    "orange",
    "paper",
    "pencil",
@@ -216,8 +281,11 @@ window.DATOS = {
    "pink",
    "red",
    "scissors",
+   "seven",
    "sharpener",
+   "six",
    "tape",
+   "ten",
    "that_is_the_backpack",
    "that_is_the_chair",
    "that_is_the_computer",
@@ -268,6 +336,8 @@ window.DATOS = {
    "those_are_the_scissors",
    "those_are_the_sharpeners",
    "those_are_the_tapes",
+   "three",
+   "two",
    "white",
    "yellow"
   ]
