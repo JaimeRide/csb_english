@@ -761,7 +761,7 @@ function mostrarSelector(alElegir) {
     return b;
   });
   const caja = crear("div", {class: "modal selector", role: "dialog"},
-    crear("p", {}, "¿Qué robot quieres?"),
+    crear("p", {}, "¿Qué ayudante quieres?"),
     crear("div", {class: "robots"}, ...botones));
   const fondo = crear("div", {class: "modal-fondo"}, caja);
   document.body.append(fondo);
