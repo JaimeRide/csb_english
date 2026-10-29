@@ -795,8 +795,8 @@ function construirMenu() {
   const subsecciones = [[TODOS, "All"], ...tipos.map(t => [t, nombreTipo(t)])];
   const apartados = [
     ["Grammar", Object.keys(NIVELES_DEMOSTRATIVOS).map(n => ["grammar", n, `Demonstratives · Level ${n}`])],
+    // Cada sección de vocabulario tiene dos modos (iconos de la barra): estudiar y prueba de listening
     ["Vocabulary", subsecciones.map(([t, n]) => ["vocab", t, n])],
-    ["Listening", subsecciones.map(([t, n]) => ["listen", t, n])],
   ];
   for (const [titulo, opciones] of apartados) {
     menu.append(crear("h2", {}, titulo));
@@ -810,17 +810,57 @@ function construirMenu() {
               crear("button", {onclick: () => { abrirMenu(false); mostrarSelector(); }}, "Change assistant")));
 }
 
+/* Iconos de la barra para los modos de Vocabulary: libro (estudiar) y bandera de cuadros (prueba) */
+const SVG_LIBRO = `<svg viewBox="0 0 100 100" aria-hidden="true">
+  <path d="M50 28 C38 20 22 20 10 24 L10 80 C22 76 38 76 50 84 Z" fill="#5a8fd8" stroke="#282828" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M50 28 C62 20 78 20 90 24 L90 80 C78 76 62 76 50 84 Z" fill="#7aa9e8" stroke="#282828" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M20 38 C28 36 36 36 42 39 M20 50 C28 48 36 48 42 51 M58 39 C64 36 72 36 80 38 M58 51 C64 48 72 48 80 50"
+        stroke="white" stroke-width="4" stroke-linecap="round" fill="none"/></svg>`;
+const SVG_BANDERA = (() => {
+  let cuadros = "";
+  for (let f = 0; f < 4; f++) {
+    for (let c = 0; c < 5; c++) {
+      if ((f + c) % 2 === 0) cuadros += `<rect x="${26 + c * 12}" y="${14 + f * 11}" width="12" height="11" fill="#282828"/>`;
+    }
+  }
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">
+    <rect x="26" y="14" width="60" height="44" fill="white"/>${cuadros}
+    <rect x="26" y="14" width="60" height="44" fill="none" stroke="#282828" stroke-width="4"/>
+    <line x1="22" y1="10" x2="22" y2="92" stroke="#282828" stroke-width="7" stroke-linecap="round"/></svg>`;
+})();
+const MODOS_VOCAB = [["vocab", SVG_LIBRO, "Estudiar"], ["listen", SVG_BANDERA, "Prueba de listening"]];
+
+const modosBarra = document.getElementById("modos-barra");
+let tarjetasSeccion = [];
+
 function abrirSeccion(vista, tipo, titulo, boton) {
   callar();
   vaciarCarga();  // cada sección empieza con el robot limpio
   menu.querySelectorAll("button").forEach(b => b.classList.toggle("activo", b === boton));
   document.getElementById("titulo").textContent = titulo;
-  vistaActual = vistas[vista];
-  document.getElementById("centro").replaceChildren(vistaActual.el);
-  const tarjetas = vista === "grammar" ? TARJETAS.filter(t => t.tipo === "classroom")
-                                       : TARJETAS.filter(t => tipo === TODOS || t.tipo === tipo);
-  vistaActual.entrar(tarjetas, vista === "grammar" ? Number(tipo) : undefined);
+  tarjetasSeccion = vista === "grammar" ? TARJETAS.filter(t => t.tipo === "classroom")
+                                        : TARJETAS.filter(t => tipo === TODOS || t.tipo === tipo);
+  if (vista === "vocab") {
+    modosBarra.replaceChildren(...MODOS_VOCAB.map(([modo, icono, nombre]) => {
+      const b = crear("button", {"data-modo": modo, title: nombre, "aria-label": nombre,
+                                 onclick: () => ponerVista(modo)});
+      b.innerHTML = icono;
+      return b;
+    }));
+  } else {
+    modosBarra.replaceChildren();
+  }
+  ponerVista(vista, vista === "grammar" ? Number(tipo) : undefined);
   abrirMenu(false);
+}
+
+/** Enseña una vista con las tarjetas de la sección. Cambiar de modo no vacía el robot. */
+function ponerVista(vista, nivel) {
+  callar();
+  vistaActual = vistas[vista];
+  modosBarra.querySelectorAll("button").forEach(b => b.classList.toggle("activo", b.dataset.modo === vista));
+  document.getElementById("centro").replaceChildren(vistaActual.el);
+  vistaActual.entrar(tarjetasSeccion, nivel);
 }
 
 // Tras pulsar un botón con el dedo o el ratón se le quita el foco: si no, Intro o Espacio

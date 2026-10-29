@@ -66,10 +66,25 @@ button {
 .boton-menu:hover { background: var(--menu-hover); }
 
 .barra h1 {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: 20px;
   font-weight: 700;
 }
+
+/* Modos de la sección (libro = estudiar, bandera de cuadros = prueba) */
+.modos-barra { display: flex; gap: 8px; flex: none; }
+.modos-barra button {
+  width: 52px;
+  height: 46px;
+  padding: 4px;
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  background: white;
+}
+.modos-barra button.activo { background: var(--amarillo); }
+.modos-barra svg { width: 100%; height: 100%; }
 
 .menu {
   position: fixed;
@@ -383,6 +398,8 @@ button {
 /* ---------- Pantallas estrechas (móvil en vertical) ---------- */
 
 @media (max-width: 600px) {
+  .barra h1 { font-size: 16px; }
+  .modos-barra button { width: 44px; height: 42px; }
   .vista { padding: 8px 10px; gap: 8px; }
   .opciones { flex-direction: column; gap: 10px; }
   .caja.frase { font-size: 22px; }
