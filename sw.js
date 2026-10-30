@@ -1,5 +1,5 @@
 // Generado por actualizar_web.py: no editar a mano
-const CACHE = "ingles-d1c1f4ae28";
+const CACHE = "ingles-c5b79a4429";
 const ARCHIVOS = [
  "./",
  "index.html",

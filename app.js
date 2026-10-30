@@ -1,5 +1,6 @@
 "use strict";
-/* Inglés para peques: Vocabulary, Listening y Grammar > Demonstratives.
+/* Inglés para peques: Vocabulary y Grammar > Demonstratives, cada uno con modo estudiar
+ * (libro) y modo prueba (bandera de cuadros).
  *
  * Las tarjetas vienen de data.js (generado por actualizar_web.py). El prefijo del
  * archivo es su tipo (color_, classroom_...) y lo que va detrás, la palabra.
@@ -17,7 +18,11 @@ const DEMOSTRATIVOS = [["this", "is", false, true], ["these", "are", true, true]
                        ["that", "is", false, false], ["those", "are", true, false]];
 // Niveles de Demonstratives: qué pasos de la frase hay que elegir (0 demostrativo, 1 verbo, 2 objeto);
 // el resto ya viene puesto
-const NIVELES_DEMOSTRATIVOS = {1: [1], 2: [0], 3: [0, 1, 2]};
+const NIVELES_DEMOSTRATIVOS = {
+  1: {pasos: [1], nombre: "is / are"},
+  2: {pasos: [0], nombre: "this / that / these / those"},
+  3: {pasos: [0, 1, 2], nombre: "frase completa"},
+};
 
 const TARJETAS = window.DATOS.tarjetas;
 
@@ -436,8 +441,13 @@ function arrastre(zona, movil, acciones) {
 
 /* ---------- Vocabulary ---------- */
 
+/** Tarjetas para estudiar, de una en una (Vocabulary y también las frases de Grammar).
+ * opciones: preparar(tarjetas) -> mazo, dibujo(carta), texto(carta), proporcion de la tarjeta
+ * y clase extra para la tarjeta. */
 class VistaVocabulario {
-  constructor() {
+  constructor({preparar = t => barajar([...t]), dibujo = dibujoTarjeta, texto = c => c.nombre,
+               proporcion = 0.72, clase = ""} = {}) {
+    Object.assign(this, {preparar, dibujar: dibujo, textoDe: texto, proporcion});
     this.modo = "entrenamiento";
     this.mazo = [];
     this.pos = 0;
@@ -450,7 +460,7 @@ class VistaVocabulario {
 
     this.dibujo = crear("div", {class: "dibujo"});
     this.palabra = crear("div", {class: "palabra"});
-    this.tarjeta = crear("div", {class: "tarjeta", onclick: () => this.avanzar()}, this.dibujo, this.palabra);
+    this.tarjeta = crear("div", {class: `tarjeta ${clase}`, onclick: () => this.avanzar()}, this.dibujo, this.palabra);
     this.hueco = crear("div", {class: "hueco"}, this.tarjeta);
     new ResizeObserver(() => this.redimensionar()).observe(this.hueco);
     this.arrastre = arrastre(this.hueco, this.tarjeta, {
@@ -458,7 +468,7 @@ class VistaVocabulario {
       puedeSiguiente: () => this.mazo.length > 0, puedeAnterior: () => this.pos > 0});
 
     this.contador = crear("span", {class: "marcador"});
-    this.robot = new Robot(() => this.palabraVisible() ? this.carta().nombre : null);
+    this.robot = new Robot(() => this.palabraVisible() ? this.textoDe(this.carta()) : null);
     const controles = crear("div", {class: "fila-botones"},
       crear("button", {class: "boton solo-raton", onclick: () => this.mover(-1), "aria-label": "Anterior"}, "◀"),
       this.contador,
@@ -475,7 +485,7 @@ class VistaVocabulario {
   }
 
   empezar() {
-    this.mazo = barajar([...this.tarjetas]);
+    this.mazo = this.preparar(this.tarjetas);
     this.pos = 0;
     this.pista = 0;
     this.mostrar();
@@ -506,7 +516,7 @@ class VistaVocabulario {
     this.pista = 0;
     this.pos += paso;
     if (this.pos >= this.mazo.length) {  // fin del mazo: se vuelve a barajar
-      barajar(this.mazo);
+      this.mazo = this.preparar(this.tarjetas);
       this.pos = 0;
     }
     this.pos = Math.max(this.pos, 0);
@@ -519,9 +529,9 @@ class VistaVocabulario {
     this.botonOjo.setAttribute("aria-label", test ? "Ver la palabra" : "Ocultar la palabra");
     if (!this.mazo.length) return;
     const carta = this.carta();
-    this.dibujo.replaceChildren(dibujoTarjeta(carta));
+    this.dibujo.replaceChildren(this.dibujar(carta));
     const pista = this.modo === "test" ? this.pista : 2;
-    let texto = carta.nombre.toUpperCase();
+    let texto = this.textoDe(carta).toUpperCase();
     if (pista === 0) texto = "?";
     else if (pista === 1) texto = texto.replace(/[A-Z]+/g, p => p[0] + "*".repeat(p.length - 1));
     this.palabra.textContent = texto;
@@ -533,7 +543,7 @@ class VistaVocabulario {
   }
 
   redimensionar() {
-    const [w, h] = encajar(this.hueco, 0.72, 12);
+    const [w, h] = encajar(this.hueco, this.proporcion, 12);
     this.tarjeta.style.width = w + "px";
     this.tarjeta.style.height = h + "px";
     ajustarTexto(this.palabra, h * 0.075);
@@ -678,6 +688,9 @@ class VistaDemostrativos {
   constructor() {
     this.aciertos = this.hechas = 0;
     this.marcador = crear("div", {class: "marcador"});
+    // Nivel actual; al tocarlo se puede elegir otro
+    this.etiquetaNivel = crear("button", {class: "etiqueta-nivel",
+      onclick: () => mostrarNiveles(this.nivel, n => this.entrar(this.tarjetas, n))});
     this.marco = crear("div", {class: "marco"});
     this.hueco = crear("div", {class: "hueco"}, this.marco);
     new ResizeObserver(() => this.redimensionar()).observe(this.hueco);
@@ -688,13 +701,16 @@ class VistaDemostrativos {
 
     this.accion = crear("button", {class: "boton fuerte", onclick: () => this.pulsarAccion()});
     this.robot = new Robot(() => this.corregida ? this.correctas.join(" ") : null);
-    this.el = crear("section", {class: "vista"}, this.marcador, this.hueco, cajas,
+    this.el = crear("section", {class: "vista"},
+                    crear("div", {class: "fila-marcador"}, this.marcador, this.etiquetaNivel), this.hueco, cajas,
                     crear("div", {class: "fila-botones"}, this.accion, this.robot.el));
   }
 
   entrar(tarjetas, nivel = 3) {
     this.tarjetas = tarjetas;
-    this.pasos = NIVELES_DEMOSTRATIVOS[nivel];
+    this.nivel = nivel;
+    this.etiquetaNivel.textContent = `Level ${nivel} ▾`;
+    this.pasos = NIVELES_DEMOSTRATIVOS[nivel].pasos;
     this.frases = [];
     this.aciertos = this.hechas = 0;
     this.siguiente();
@@ -808,6 +824,37 @@ function mostrarDescanso() {
 // Un segundo después del último ejercicio, para que antes vea si ha acertado
 carga.alSobrecargar = () => setTimeout(mostrarDescanso, 1000);
 
+/* ---------- Selector de nivel (Grammar, modo prueba) ---------- */
+
+function leerNivelGuardado() {
+  try { return Number(localStorage.getItem("nivel")) || 1; } catch { return 1; }
+}
+
+/** Modal con los niveles; el último elegido sale marcado. alElegir(nivel). */
+function mostrarNiveles(actual, alElegir) {
+  const niveles = Object.keys(NIVELES_DEMOSTRATIVOS).map(Number);
+  const elegir = nivel => {
+    document.removeEventListener("keydown", teclaModal, true);
+    fondo.remove();
+    try { localStorage.setItem("nivel", nivel); } catch { /* sin almacenamiento: no pasa nada */ }
+    alElegir(nivel);
+  };
+  const teclaModal = e => {
+    if (niveles.includes(Number(e.key))) elegir(Number(e.key));
+    else if (["Enter", " ", "Escape"].includes(e.key)) elegir(actual);
+    e.preventDefault();
+    e.stopPropagation();  // mientras está abierto, el teclado no llega a los ejercicios
+  };
+  const botones = niveles.map(n => crear("button",
+    {class: "elegir-nivel" + (n === actual ? " ultimo" : ""), onclick: () => elegir(n)},
+    crear("strong", {}, `Level ${n}`), crear("span", {}, NIVELES_DEMOSTRATIVOS[n].nombre)));
+  const caja = crear("div", {class: "modal niveles", role: "dialog"},
+    crear("p", {}, "¿Qué nivel quieres?"), ...botones);
+  const fondo = crear("div", {class: "modal-fondo"}, caja);
+  document.body.append(fondo);
+  document.addEventListener("keydown", teclaModal, true);
+}
+
 /* ---------- Selector de robot (voz) ---------- */
 
 /** Al abrir la app se elige el robot: el del lazo (voz femenina) o el del bigote (masculina). */
@@ -843,9 +890,18 @@ function mostrarSelector(alElegir) {
 
 /* ---------- Menú y arranque ---------- */
 
+/** Frases para estudiar: las cuatro de cada objeto seguidas (this, these, that, those) para
+ * ver el contraste; los objetos, en orden aleatorio. */
+const frasesParaEstudiar = tarjetas => barajar([...tarjetas]).flatMap(t => frasesDemostrativos([t]));
+
 const vistas = {
   vocab: new VistaVocabulario(),
   listen: new VistaListening(),
+  frases: new VistaVocabulario({
+    preparar: frasesParaEstudiar,
+    dibujo: f => componerDemostrativo(f.demo.toLowerCase(), f.tarjeta),
+    texto: f => `${f.demo} ${f.verbo} ${f.objeto}`,
+    proporcion: 1.25, clase: "tarjeta-frase"}),
   grammar: new VistaDemostrativos(),
 };
 let vistaActual = null;
@@ -867,8 +923,8 @@ function construirMenu() {
   });
   const subsecciones = [[TODOS, "All"], ...tipos.map(t => [t, nombreTipo(t)])];
   const apartados = [
-    ["Grammar", Object.keys(NIVELES_DEMOSTRATIVOS).map(n => ["grammar", n, `Demonstratives · Level ${n}`])],
-    // Cada sección de vocabulario tiene dos modos (iconos de la barra): estudiar y prueba de listening
+    // Cada sección tiene dos modos (iconos de la barra): estudiar y prueba
+    ["Grammar", [["grammar", "demonstratives", "Demonstratives"]]],
     ["Vocabulary", subsecciones.map(([t, n]) => ["vocab", t, n])],
   ];
   for (const [titulo, opciones] of apartados) {
@@ -901,7 +957,11 @@ const SVG_BANDERA = (() => {
     <rect x="26" y="14" width="60" height="44" fill="none" stroke="#282828" stroke-width="4"/>
     <line x1="22" y1="10" x2="22" y2="92" stroke="#282828" stroke-width="7" stroke-linecap="round"/></svg>`;
 })();
-const MODOS_VOCAB = [["vocab", SVG_LIBRO, "Estudiar"], ["listen", SVG_BANDERA, "Prueba de listening"]];
+// Modos de cada sección: [vista, icono, nombre]; el primero es con el que se abre
+const MODOS = {
+  vocab: [["vocab", SVG_LIBRO, "Estudiar"], ["listen", SVG_BANDERA, "Prueba de listening"]],
+  grammar: [["frases", SVG_LIBRO, "Estudiar"], ["grammar", SVG_BANDERA, "Prueba"]],
+};
 
 const modosBarra = document.getElementById("modos-barra");
 let tarjetasSeccion = [];
@@ -913,27 +973,30 @@ function abrirSeccion(vista, tipo, titulo, boton) {
   document.getElementById("titulo").textContent = titulo;
   tarjetasSeccion = vista === "grammar" ? TARJETAS.filter(t => t.tipo === "classroom")
                                         : TARJETAS.filter(t => tipo === TODOS || t.tipo === tipo);
-  if (vista === "vocab") {
-    modosBarra.replaceChildren(...MODOS_VOCAB.map(([modo, icono, nombre]) => {
-      const b = crear("button", {"data-modo": modo, title: nombre, "aria-label": nombre,
-                                 onclick: () => ponerVista(modo)});
-      b.innerHTML = icono;
-      return b;
-    }));
-  } else {
-    modosBarra.replaceChildren();
-  }
-  ponerVista(vista, vista === "grammar" ? Number(tipo) : undefined);
+  modosBarra.replaceChildren(...MODOS[vista].map(([modo, icono, nombre]) => {
+    const b = crear("button", {"data-modo": modo, title: nombre, "aria-label": nombre,
+                               onclick: () => ponerVista(modo)});
+    b.innerHTML = icono;
+    return b;
+  }));
+  ponerVista(MODOS[vista][0][0]);
   abrirMenu(false);
 }
 
 /** Enseña una vista con las tarjetas de la sección. Cambiar de modo no vacía el robot. */
-function ponerVista(vista, nivel) {
+function ponerVista(vista) {
   callar();
   vistaActual = vistas[vista];
   modosBarra.querySelectorAll("button").forEach(b => b.classList.toggle("activo", b.dataset.modo === vista));
   document.getElementById("centro").replaceChildren(vistaActual.el);
-  vistaActual.entrar(tarjetasSeccion, nivel);
+  if (vista === "grammar") {
+    // Prueba de Grammar: primero se elige el nivel (sale marcado el último)
+    const nivel = leerNivelGuardado();
+    vistaActual.entrar(tarjetasSeccion, nivel);
+    mostrarNiveles(nivel, n => vistaActual.entrar(tarjetasSeccion, n));
+  } else {
+    vistaActual.entrar(tarjetasSeccion);
+  }
 }
 
 // Tras pulsar un botón con el dedo o el ratón se le quita el foco: si no, Intro o Espacio
