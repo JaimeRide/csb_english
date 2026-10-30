@@ -699,11 +699,20 @@ class VistaDemostrativos {
     this.frase = crear("div", {class: "caja frase"});
     const cajas = crear("div", {class: "cajas"}, crear("div", {class: "caja pasos"}, ...this.filas), this.frase);
 
-    this.accion = crear("button", {class: "boton fuerte", onclick: () => this.pulsarAccion()});
-    this.robot = new Robot(() => this.corregida ? this.correctas.join(" ") : null);
+    // El robot comprueba y dice la frase correcta: se activa cuando están todos los pasos elegidos.
+    // Después se pasa a la siguiente arrastrando (o con Siguiente en el ordenador)
+    this.robot = new Robot(() => {
+      if (!this.elegido.every(Boolean)) return null;
+      if (!this.corregida) this.comprobar();
+      return this.correctas.join(" ");
+    });
+    this.siguienteBtn = crear("button", {class: "boton fuerte solo-raton", onclick: () => this.siguiente()}, "Siguiente ▶");
+    this.arrastre = arrastre(this.hueco, this.marco, {
+      siguiente: () => this.siguiente(), puedeSiguiente: () => this.corregida,
+      anterior: null, puedeAnterior: () => false});
     this.el = crear("section", {class: "vista"},
                     crear("div", {class: "fila-marcador"}, this.marcador, this.etiquetaNivel), this.hueco, cajas,
-                    crear("div", {class: "fila-botones"}, this.accion, this.robot.el));
+                    crear("div", {class: "fila-botones"}, this.robot.el, this.siguienteBtn));
   }
 
   entrar(tarjetas, nivel = 3) {
@@ -751,9 +760,7 @@ class VistaDemostrativos {
     this.mostrar();
   }
 
-  pulsarAccion() {
-    if (this.corregida) return this.siguiente();
-    if (!this.elegido.every(Boolean)) return;
+  comprobar() {
     this.corregida = true;
     this.hechas++;
     const bien = this.elegido.every((e, i) => e === this.correctas[i]);
@@ -777,9 +784,9 @@ class VistaDemostrativos {
       }));
     });
     this.frase.textContent = this.elegido.map(e => e || "___").join(" ") + ".";
-    this.accion.textContent = this.corregida ? "Siguiente ▶" : "Comprobar ✔";
-    this.accion.disabled = !this.corregida && !this.elegido.every(Boolean);
-    this.robot.activo = this.corregida;
+    this.siguienteBtn.disabled = !this.corregida;
+    this.robot.activo = this.elegido.every(Boolean);
+    this.arrastre.actualizar();
     this.marcador.textContent = `Aciertos: ${this.aciertos} / ${this.hechas}`;
   }
 
@@ -792,7 +799,9 @@ class VistaDemostrativos {
 
   tecla(e) {
     if (e.key !== "Enter") return false;
-    this.pulsarAccion();
+    // Intro: comprueba con el robot y, ya comprobada, pasa a la siguiente
+    if (this.corregida) this.siguiente();
+    else this.robot.pulsar();
     return true;
   }
 }
