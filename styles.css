@@ -94,6 +94,7 @@ button {
   width: min(280px, 80vw);
   padding: 12px 0 24px;
   padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
   background: var(--menu);
   overflow-y: auto;
   display: flex;
@@ -445,7 +446,12 @@ button {
 @media (max-width: 600px) {
   .barra h1 { font-size: 16px; }
   .modos-barra button { width: 44px; height: 42px; }
-  .vista { padding: 8px 10px; gap: 8px; }
+  .vista {
+    padding: 8px 10px;
+    /* sin esto, la barra de navegación de Android tapa los botones de abajo */
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    gap: 8px;
+  }
   .opciones { flex-direction: column; gap: 10px; }
   .caja.frase { font-size: 22px; }
   .paso button { font-size: 16px; padding: 4px 10px; }
