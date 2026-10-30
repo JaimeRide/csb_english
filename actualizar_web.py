@@ -169,7 +169,7 @@ def main():
     estaticos = ["index.html", "styles.css", "app.js", "manifest.webmanifest"]
     archivos = estaticos + sorted(p.relative_to(WEB).as_posix() for p in IMG.rglob("*") if p.is_file())
     archivos += [f"audio/{v}/{a}.ogg" for v in VOCES for a in audios[v]]
-    resumen = hashlib.sha1()
+    resumen = hashlib.sha1(Path(__file__).read_bytes())  # incluye cómo se genera sw.js
     for a in archivos:
         resumen.update(a.encode())
         if (WEB / a).exists():
