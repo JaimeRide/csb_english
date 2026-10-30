@@ -366,6 +366,74 @@ function svgOjo(tachado) {
   </svg>`;
 }
 
+/* ---------- Arrastrar con el dedo (móvil) ---------- */
+
+// En pantallas táctiles no se ven las flechas ◀ ▶ ni Siguiente: se arrastra con el dedo
+const TACTIL = matchMedia("(pointer: coarse)").matches;
+document.body.classList.toggle("tactil", TACTIL);
+
+/** Arrastre horizontal en la zona: lo que se mueve sigue al dedo y, si se suelta lejos,
+ * pasa al siguiente (hacia la izquierda) o al anterior (hacia la derecha).
+ * acciones: {siguiente, anterior, puedeSiguiente, puedeAnterior}.
+ * A los lados se ponen flechas translúcidas como pista (también se pueden tocar). */
+function arrastre(zona, movil, acciones) {
+  const flecha = (lado, accion, simbolo) =>
+    crear("button", {class: `flecha-pista ${lado}`, "aria-hidden": "true", tabindex: "-1",
+                     onclick: () => { if (puede(accion)) acciones[accion](); }}, simbolo);
+  const puede = accion => acciones[accion] && (accion === "siguiente" ? acciones.puedeSiguiente()
+                                                                      : acciones.puedeAnterior());
+  const flechas = {anterior: flecha("izquierda", "anterior", "‹"), siguiente: flecha("derecha", "siguiente", "›")};
+  zona.classList.add("arrastrable");
+  zona.append(flechas.anterior, flechas.siguiente);
+
+  let inicio = null, arrastrando = false, recienArrastrado = false;
+  zona.addEventListener("pointerdown", e => {
+    if (e.pointerType !== "touch" || inicio) return;
+    inicio = {x: e.clientX, y: e.clientY, id: e.pointerId};
+    arrastrando = false;
+    movil.style.transition = "none";
+  });
+  zona.addEventListener("pointermove", e => {
+    if (!inicio || e.pointerId !== inicio.id) return;
+    const dx = e.clientX - inicio.x, dy = e.clientY - inicio.y;
+    if (!arrastrando && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
+      arrastrando = true;
+      zona.setPointerCapture(e.pointerId);
+    }
+    if (arrastrando) {
+      // hacia un lado sin nada que pasar, se mueve poco (como un tope)
+      const posible = puede(dx < 0 ? "siguiente" : "anterior");
+      movil.style.transform = `translateX(${posible ? dx : dx * 0.2}px)`;
+    }
+  });
+  const soltar = (e, cancelado) => {
+    if (!inicio || e.pointerId !== inicio.id) return;
+    const dx = e.clientX - inicio.x;
+    inicio = null;
+    movil.style.transition = "transform 0.2s ease";
+    movil.style.transform = "";
+    if (!arrastrando) return;
+    recienArrastrado = true;  // el "click" que llega al soltar no cuenta
+    setTimeout(() => { recienArrastrado = false; }, 50);
+    const umbral = Math.min(80, zona.clientWidth * 0.2);
+    if (cancelado) return;
+    if (dx < -umbral && puede("siguiente")) acciones.siguiente();
+    else if (dx > umbral && puede("anterior")) acciones.anterior();
+  };
+  zona.addEventListener("pointerup", e => soltar(e, false));
+  zona.addEventListener("pointercancel", e => soltar(e, true));
+  zona.addEventListener("click", e => {
+    if (recienArrastrado) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+
+  return {
+    /** Enseña solo las flechas de lo que se puede hacer ahora. */
+    actualizar() {
+      for (const [accion, f] of Object.entries(flechas)) f.classList.toggle("oculta", !puede(accion));
+    },
+  };
+}
+
 /* ---------- Vocabulary ---------- */
 
 class VistaVocabulario {
@@ -385,13 +453,16 @@ class VistaVocabulario {
     this.tarjeta = crear("div", {class: "tarjeta", onclick: () => this.avanzar()}, this.dibujo, this.palabra);
     this.hueco = crear("div", {class: "hueco"}, this.tarjeta);
     new ResizeObserver(() => this.redimensionar()).observe(this.hueco);
+    this.arrastre = arrastre(this.hueco, this.tarjeta, {
+      siguiente: () => this.mover(1), anterior: () => this.mover(-1),
+      puedeSiguiente: () => this.mazo.length > 0, puedeAnterior: () => this.pos > 0});
 
     this.contador = crear("span", {class: "marcador"});
     this.robot = new Robot(() => this.palabraVisible() ? this.carta().nombre : null);
     const controles = crear("div", {class: "fila-botones"},
-      crear("button", {class: "boton", onclick: () => this.mover(-1), "aria-label": "Anterior"}, "◀"),
+      crear("button", {class: "boton solo-raton", onclick: () => this.mover(-1), "aria-label": "Anterior"}, "◀"),
       this.contador,
-      crear("button", {class: "boton", onclick: () => this.mover(1), "aria-label": "Siguiente"}, "▶"),
+      crear("button", {class: "boton solo-raton", onclick: () => this.mover(1), "aria-label": "Siguiente"}, "▶"),
       this.botonOjo,
       this.robot.el);
 
@@ -457,6 +528,7 @@ class VistaVocabulario {
     this.palabra.classList.toggle("oculta", pista < 2);
     this.contador.textContent = `${this.pos + 1} / ${this.mazo.length}`;
     this.robot.activo = this.palabraVisible();
+    this.arrastre.actualizar();
     this.redimensionar();
   }
 
@@ -489,7 +561,10 @@ class VistaListening {
     this.hueco = crear("div", {class: "hueco"}, this.opciones);
     new ResizeObserver(() => this.redimensionar()).observe(this.hueco);
     this.solucion = crear("div", {class: "solucion"});
-    this.siguienteBtn = crear("button", {class: "boton fuerte", onclick: () => this.siguiente()}, "Siguiente ▶");
+    this.siguienteBtn = crear("button", {class: "boton fuerte solo-raton", onclick: () => this.siguiente()}, "Siguiente ▶");
+    this.arrastre = arrastre(this.hueco, this.opciones, {
+      siguiente: () => this.siguiente(), puedeSiguiente: () => Boolean(this.elegida),
+      anterior: null, puedeAnterior: () => false});
     this.el = crear("section", {class: "vista"}, this.marcador, this.robot.el, this.hueco,
                     this.solucion, this.siguienteBtn);
   }
@@ -550,6 +625,7 @@ class VistaListening {
       b.append(crear("span", {class: "numero"}, String(i + 1)));
       return b;
     }));
+    this.arrastre.actualizar();
     this.redimensionar();
   }
 

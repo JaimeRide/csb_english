@@ -385,6 +385,33 @@ button {
 .elegir-robot svg { width: min(160px, 32vw); }
 .modal .boton { background: var(--amarillo); font-size: 22px; font-weight: 700; padding: 8px 28px; }
 
+/* ---------- Arrastrar con el dedo (pantallas táctiles) ---------- */
+
+.arrastrable { position: relative; touch-action: pan-y; }
+.flecha-pista { display: none; }
+.tactil .solo-raton { display: none; }
+.tactil .flecha-pista {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 50%;
+  width: 44px;
+  height: 88px;
+  margin-top: -44px;
+  padding: 0 0 8px;
+  border: none;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.45);
+  color: rgba(40, 40, 40, 0.45);
+  font-size: 64px;
+  line-height: 1;
+  z-index: 2;
+}
+.tactil .flecha-pista.izquierda { left: 0; }
+.tactil .flecha-pista.derecha { right: 0; }
+.tactil .flecha-pista.oculta { display: none; }
+
 /* ---------- Pantallas estrechas (móvil en vertical) ---------- */
 
 @media (max-width: 600px) {
