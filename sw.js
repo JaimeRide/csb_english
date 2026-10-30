@@ -217,7 +217,10 @@ const ARCHIVOS = [
 ];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));
+  // cache: "reload": siempre del servidor, no de la caché del navegador (que podría ser la versión vieja)
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(ARCHIVOS.map(a => new Request(a, {cache: "reload"}))))
+    .then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys()
