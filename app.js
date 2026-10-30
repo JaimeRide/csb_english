@@ -18,6 +18,14 @@ const DEMOSTRATIVOS = [["this", "is", false, true], ["these", "are", true, true]
                        ["that", "is", false, false], ["those", "are", true, false]];
 // Niveles de Demonstratives: qué pasos de la frase hay que elegir (0 demostrativo, 1 verbo, 2 objeto);
 // el resto ya viene puesto
+// Grammar > Numbers & plurals: "One desk", "Five desks"... (igual que en actualizar_web.py)
+const NUMEROS = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+// Niveles de Numbers & plurals: pasos 0 número, 1 objeto (singular o plural)
+const NIVELES_NUMEROS = {
+  1: {pasos: [1], nombre: "singular / plural"},
+  2: {pasos: [0], nombre: "número"},
+  3: {pasos: [0, 1], nombre: "frase completa"},
+};
 const NIVELES_DEMOSTRATIVOS = {
   1: {pasos: [1], nombre: "is / are"},
   2: {pasos: [0], nombre: "this / that / these / those"},
@@ -152,6 +160,32 @@ function componerDemostrativo(demo, tarjeta) {
   }
   return lienzo;
 }
+
+/** n dibujos del objeto: hasta 5 en una fila; de 6 a 10, en dos filas. Mismo tamaño que los demostrativos. */
+function componerNumero(n, tarjeta) {
+  const W = 800, H = 520;
+  const lienzo = crear("canvas");
+  lienzo.width = W;
+  lienzo.height = H;
+  const ctx = lienzo.getContext("2d");
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, W, H);
+  const filas = n <= 5 ? [n] : [Math.ceil(n / 2), Math.floor(n / 2)];
+  const columnas = filas[0];
+  const celdaW = W * 0.92 / columnas, celdaH = H * 0.9 / filas.length;
+  const obj = listas.get(tarjeta.archivo);
+  const esc = Math.min(celdaW * 0.85 / obj.width, celdaH * 0.85 / obj.height);
+  const ow = obj.width * esc, oh = obj.height * esc;
+  filas.forEach((cuantos, f) => {
+    const y = H * 0.05 + celdaH * f + (celdaH - oh) / 2;
+    const x0 = (W - cuantos * celdaW) / 2;
+    for (let i = 0; i < cuantos; i++) ctx.drawImage(obj, x0 + celdaW * i + (celdaW - ow) / 2, y, ow, oh);
+  });
+  return lienzo;
+}
+
+/** "One desk", "Five desks"... */
+const fraseNumero = (n, tarjeta) => `${capitalizar(NUMEROS[n - 1])} ${n === 1 ? tarjeta.nombre : plural(tarjeta.nombre)}`;
 
 /* ---------- Voz ---------- */
 /* El robot habla con audios ya generados (audio/<voz>/*.ogg, voz de Piper con efecto robótico,
@@ -684,13 +718,54 @@ function frasesDemostrativos(tarjetas) {
   return frases;
 }
 
-class VistaDemostrativos {
-  constructor() {
+/** Ejercicio nuevo de demostrativos: {opciones, correctas, lienzo}. estado guarda las frases pendientes. */
+function nuevoDemostrativo(tarjetas, estado) {
+  if (!estado.frases || !estado.frases.length) estado.frases = barajar(frasesDemostrativos(tarjetas));
+  const actual = estado.frases.pop();
+  // Paso 3: el objeto correcto y otra opción: el mismo objeto en el otro número
+  // (the pencil / the pencils) o un objeto distinto en el mismo número
+  const {tarjeta, esPlural} = actual;
+  let otro;
+  if (!SOLO_PLURAL.has(tarjeta.nombre) && Math.random() < 0.5) {
+    otro = "the " + (esPlural ? tarjeta.nombre : plural(tarjeta.nombre));
+  } else {
+    const otras = tarjetas.filter(t => t !== tarjeta && (esPlural || !SOLO_PLURAL.has(t.nombre)));
+    const nombre = azar(otras).nombre;
+    otro = "the " + (esPlural ? plural(nombre) : nombre);
+  }
+  return {
+    // Demostrativos agrupados por cerca (This/These) y lejos (That/Those)
+    opciones: [["This", "These", "That", "Those"], ["is", "are"], barajar([actual.objeto, otro])],
+    correctas: [actual.demo, actual.verbo, actual.objeto],
+    lienzo: componerDemostrativo(actual.demo.toLowerCase(), tarjeta),
+  };
+}
+
+/** Ejercicio nuevo de Numbers & plurals. El 1 sale a menudo para que singular/plural no sea siempre plural. */
+function nuevoNumero(tarjetas) {
+  const tarjeta = azar(tarjetas);
+  const n = Math.random() < 0.4 ? 1 : 2 + Math.floor(Math.random() * 9);
+  // 4 números para elegir, ordenados de menor a mayor
+  const otros = barajar(NUMEROS.map((_, i) => i + 1).filter(i => i !== n)).slice(0, 3);
+  const numeros = [n, ...otros].sort((a, b) => a - b).map(i => capitalizar(NUMEROS[i - 1]));
+  const [numero, objeto] = [capitalizar(NUMEROS[n - 1]), n === 1 ? tarjeta.nombre : plural(tarjeta.nombre)];
+  return {
+    opciones: [numeros, [tarjeta.nombre, plural(tarjeta.nombre)]],
+    correctas: [numero, objeto],
+    lienzo: componerNumero(n, tarjeta),
+  };
+}
+
+/** Prueba de Grammar: construir la frase por pasos según el nivel y comprobarla con el robot.
+ * config: {niveles, nuevo(tarjetas, estado) -> {opciones, correctas, lienzo}, clave (para recordar el nivel)}. */
+class VistaFrasePrueba {
+  constructor(config) {
+    this.config = config;
     this.aciertos = this.hechas = 0;
     this.marcador = crear("div", {class: "marcador"});
     // Nivel actual; al tocarlo se puede elegir otro
     this.etiquetaNivel = crear("button", {class: "etiqueta-nivel",
-      onclick: () => mostrarNiveles(this.nivel, n => this.entrar(this.tarjetas, n))});
+      onclick: () => this.elegirNivel()});
     this.marco = crear("div", {class: "marco"});
     this.hueco = crear("div", {class: "hueco"}, this.marco);
     new ResizeObserver(() => this.redimensionar()).observe(this.hueco);
@@ -715,40 +790,33 @@ class VistaDemostrativos {
                     crear("div", {class: "fila-botones"}, this.robot.el, this.siguienteBtn));
   }
 
-  entrar(tarjetas, nivel = 3) {
+  /** Entra con el último nivel y enseña el selector de nivel. */
+  entrar(tarjetas) {
     this.tarjetas = tarjetas;
+    this.empezar(leerNivelGuardado(this.config.clave));
+    this.elegirNivel();
+  }
+
+  elegirNivel() {
+    mostrarNiveles(this.config.niveles, this.nivel, this.config.clave, n => this.empezar(n));
+  }
+
+  empezar(nivel) {
     this.nivel = nivel;
     this.etiquetaNivel.textContent = `Level ${nivel} ▾`;
-    this.pasos = NIVELES_DEMOSTRATIVOS[nivel].pasos;
-    this.frases = [];
+    this.pasos = this.config.niveles[nivel].pasos;
+    this.estado = {};
     this.aciertos = this.hechas = 0;
     this.siguiente();
   }
 
   siguiente() {
-    if (!this.frases.length) this.frases = barajar(frasesDemostrativos(this.tarjetas));
-    this.actual = this.frases.pop();
+    Object.assign(this, this.config.nuevo(this.tarjetas, this.estado));
     this.corregida = false;
     this.robot.ponerAnimo(null);
-
-    // Paso 3: el objeto correcto y otra opción: el mismo objeto en el otro número
-    // (the pencil / the pencils) o un objeto distinto en el mismo número
-    const {tarjeta, esPlural} = this.actual;
-    let otro;
-    if (!SOLO_PLURAL.has(tarjeta.nombre) && Math.random() < 0.5) {
-      otro = "the " + (esPlural ? tarjeta.nombre : plural(tarjeta.nombre));
-    } else {
-      const otras = this.tarjetas.filter(t => t !== tarjeta && (esPlural || !SOLO_PLURAL.has(t.nombre)));
-      const nombre = azar(otras).nombre;
-      otro = "the " + (esPlural ? plural(nombre) : nombre);
-    }
-    // Demostrativos agrupados por cerca (This/These) y lejos (That/Those)
-    this.opciones = [["This", "These", "That", "Those"], ["is", "are"], barajar([this.actual.objeto, otro])];
-    this.correctas = [this.actual.demo, this.actual.verbo, this.actual.objeto];
     // Los pasos que no se eligen en este nivel ya vienen puestos
     this.elegido = this.correctas.map((c, i) => this.pasos.includes(i) ? null : c);
 
-    this.lienzo = componerDemostrativo(this.actual.demo.toLowerCase(), tarjeta);
     this.marco.replaceChildren(this.lienzo);
     this.mostrar();
     this.redimensionar();
@@ -773,6 +841,7 @@ class VistaDemostrativos {
   mostrar() {
     this.filas.forEach((fila, i) => {
       fila.style.display = this.pasos.includes(i) ? "" : "none";  // solo las filas de este nivel
+      if (i >= this.opciones.length) return fila.replaceChildren();
       const activo = i === 0 || Boolean(this.elegido[i - 1]);  // bloqueado hasta elegir el anterior
       fila.replaceChildren(...this.opciones[i].map(t => {
         const b = crear("button", {onclick: () => this.elegir(i, t)}, t);
@@ -835,17 +904,17 @@ carga.alSobrecargar = () => setTimeout(mostrarDescanso, 1000);
 
 /* ---------- Selector de nivel (Grammar, modo prueba) ---------- */
 
-function leerNivelGuardado() {
-  try { return Number(localStorage.getItem("nivel")) || 1; } catch { return 1; }
+function leerNivelGuardado(clave) {
+  try { return Number(localStorage.getItem(clave)) || 1; } catch { return 1; }
 }
 
-/** Modal con los niveles; el último elegido sale marcado. alElegir(nivel). */
-function mostrarNiveles(actual, alElegir) {
-  const niveles = Object.keys(NIVELES_DEMOSTRATIVOS).map(Number);
+/** Modal con los niveles; el último elegido sale marcado y se recuerda con clave. alElegir(nivel). */
+function mostrarNiveles(config, actual, clave, alElegir) {
+  const niveles = Object.keys(config).map(Number);
   const elegir = nivel => {
     document.removeEventListener("keydown", teclaModal, true);
     fondo.remove();
-    try { localStorage.setItem("nivel", nivel); } catch { /* sin almacenamiento: no pasa nada */ }
+    try { localStorage.setItem(clave, nivel); } catch { /* sin almacenamiento: no pasa nada */ }
     alElegir(nivel);
   };
   const teclaModal = e => {
@@ -856,7 +925,7 @@ function mostrarNiveles(actual, alElegir) {
   };
   const botones = niveles.map(n => crear("button",
     {class: "elegir-nivel" + (n === actual ? " ultimo" : ""), onclick: () => elegir(n)},
-    crear("strong", {}, `Level ${n}`), crear("span", {}, NIVELES_DEMOSTRATIVOS[n].nombre)));
+    crear("strong", {}, `Level ${n}`), crear("span", {}, config[n].nombre)));
   const caja = crear("div", {class: "modal niveles", role: "dialog"},
     crear("p", {}, "¿Qué nivel quieres?"), ...botones);
   const fondo = crear("div", {class: "modal-fondo"}, caja);
@@ -903,6 +972,10 @@ function mostrarSelector(alElegir) {
  * ver el contraste; los objetos, en orden aleatorio. */
 const frasesParaEstudiar = tarjetas => barajar([...tarjetas]).flatMap(t => frasesDemostrativos([t]));
 
+/** Numbers & plurals para estudiar: de cada objeto, "One ..." y otro número al azar, seguidos. */
+const numerosParaEstudiar = tarjetas => barajar([...tarjetas]).flatMap(t =>
+  [{n: 1, tarjeta: t}, {n: 2 + Math.floor(Math.random() * 9), tarjeta: t}]);
+
 const vistas = {
   vocab: new VistaVocabulario(),
   listen: new VistaListening(),
@@ -911,7 +984,13 @@ const vistas = {
     dibujo: f => componerDemostrativo(f.demo.toLowerCase(), f.tarjeta),
     texto: f => `${f.demo} ${f.verbo} ${f.objeto}`,
     proporcion: 1.25, clase: "tarjeta-frase"}),
-  grammar: new VistaDemostrativos(),
+  demostrativos: new VistaFrasePrueba({niveles: NIVELES_DEMOSTRATIVOS, nuevo: nuevoDemostrativo, clave: "nivel"}),
+  numerosEstudio: new VistaVocabulario({
+    preparar: numerosParaEstudiar,
+    dibujo: c => componerNumero(c.n, c.tarjeta),
+    texto: c => fraseNumero(c.n, c.tarjeta),
+    proporcion: 1.25, clase: "tarjeta-frase"}),
+  numerosPrueba: new VistaFrasePrueba({niveles: NIVELES_NUMEROS, nuevo: nuevoNumero, clave: "nivel_numeros"}),
 };
 let vistaActual = null;
 
@@ -933,7 +1012,7 @@ function construirMenu() {
   const subsecciones = [[TODOS, "All"], ...tipos.map(t => [t, nombreTipo(t)])];
   const apartados = [
     // Cada sección tiene dos modos (iconos de la barra): estudiar y prueba
-    ["Grammar", [["grammar", "demonstratives", "Demonstratives"]]],
+    ["Grammar", [["demostrativos", null, "Demonstratives"], ["numeros", null, "Numbers & plurals"]]],
     ["Vocabulary", subsecciones.map(([t, n]) => ["vocab", t, n])],
   ];
   for (const [titulo, opciones] of apartados) {
@@ -969,7 +1048,8 @@ const SVG_BANDERA = (() => {
 // Modos de cada sección: [vista, icono, nombre]; el primero es con el que se abre
 const MODOS = {
   vocab: [["vocab", SVG_LIBRO, "Estudiar"], ["listen", SVG_BANDERA, "Prueba de listening"]],
-  grammar: [["frases", SVG_LIBRO, "Estudiar"], ["grammar", SVG_BANDERA, "Prueba"]],
+  demostrativos: [["frases", SVG_LIBRO, "Estudiar"], ["demostrativos", SVG_BANDERA, "Prueba"]],
+  numeros: [["numerosEstudio", SVG_LIBRO, "Estudiar"], ["numerosPrueba", SVG_BANDERA, "Prueba"]],
 };
 
 const modosBarra = document.getElementById("modos-barra");
@@ -980,8 +1060,10 @@ function abrirSeccion(vista, tipo, titulo, boton) {
   vaciarCarga();  // cada sección empieza con el robot limpio
   menu.querySelectorAll("button").forEach(b => b.classList.toggle("activo", b === boton));
   document.getElementById("titulo").textContent = titulo;
-  tarjetasSeccion = vista === "grammar" ? TARJETAS.filter(t => t.tipo === "classroom")
-                                        : TARJETAS.filter(t => tipo === TODOS || t.tipo === tipo);
+  // Grammar usa los objetos de clase (en números, sin los que solo tienen plural: "one scissors")
+  tarjetasSeccion = vista === "demostrativos" ? TARJETAS.filter(t => t.tipo === "classroom")
+    : vista === "numeros" ? TARJETAS.filter(t => t.tipo === "classroom" && !SOLO_PLURAL.has(t.nombre))
+    : TARJETAS.filter(t => tipo === TODOS || t.tipo === tipo);
   modosBarra.replaceChildren(...MODOS[vista].map(([modo, icono, nombre]) => {
     const b = crear("button", {"data-modo": modo, title: nombre, "aria-label": nombre,
                                onclick: () => ponerVista(modo)});
@@ -998,14 +1080,7 @@ function ponerVista(vista) {
   vistaActual = vistas[vista];
   modosBarra.querySelectorAll("button").forEach(b => b.classList.toggle("activo", b.dataset.modo === vista));
   document.getElementById("centro").replaceChildren(vistaActual.el);
-  if (vista === "grammar") {
-    // Prueba de Grammar: primero se elige el nivel (sale marcado el último)
-    const nivel = leerNivelGuardado();
-    vistaActual.entrar(tarjetasSeccion, nivel);
-    mostrarNiveles(nivel, n => vistaActual.entrar(tarjetasSeccion, n));
-  } else {
-    vistaActual.entrar(tarjetasSeccion);
-  }
+  vistaActual.entrar(tarjetasSeccion);  // la prueba de Grammar pide antes el nivel
 }
 
 // Tras pulsar un botón con el dedo o el ratón se le quita el foco: si no, Intro o Espacio

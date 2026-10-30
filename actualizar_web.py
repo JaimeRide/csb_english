@@ -32,6 +32,8 @@ VOCES = {"alba": "en_GB-alba-medium.onnx", "alan": "en_GB-alan-medium.onnx"}
 # Ajustes del efecto robótico (si se cambian, se regeneran todos los audios)
 AJUSTES_VOZ = {"velocidad": 1.1, "mezcla": 0.35, "anillo_hz": 55.0, "eco_ms": 9.0, "eco": 0.3}
 SALUDO = "Hello!"  # lo dice el robot elegido en el selector
+# Grammar > Numbers & plurals: "One desk", "Five desks"... (igual que en app.js)
+NUMEROS = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
 EXTENSIONES = {".png", ".jpg", ".jpeg", ".webp"}
 
 # El robot se dibuja con la misma función que la versión de escritorio
@@ -70,7 +72,8 @@ def clave_audio(texto):
 
 
 def textos_a_decir(tarjetas):
-    """Todo lo que puede decir el robot: cada palabra y cada frase de los demostrativos."""
+    """Todo lo que puede decir el robot: cada palabra, cada frase de los demostrativos
+    y cada "número + objeto" de Numbers & plurals."""
     textos = {t["nombre"] for t in tarjetas} | {SALUDO}
     for t in tarjetas:
         if t["tipo"] != "classroom":
@@ -79,6 +82,9 @@ def textos_a_decir(tarjetas):
             if t["nombre"] in SOLO_PLURAL and not es_plural:
                 continue
             textos.add(f"{demo.capitalize()} {verbo} the {plural(t['nombre']) if es_plural else t['nombre']}")
+        if t["nombre"] not in SOLO_PLURAL:
+            for n, numero in enumerate(NUMEROS, 1):
+                textos.add(f"{numero.capitalize()} {t['nombre'] if n == 1 else plural(t['nombre'])}")
     return sorted(textos)
 
 
