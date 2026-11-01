@@ -155,11 +155,8 @@ def main():
             tarjetas.append({"tipo": tipo, "nombre": nombre.replace("_", " "),
                              "archivo": destino.relative_to(WEB).as_posix()})
 
-    for icono in ("hand_this.png", "hand_that.png", "brush.png"):
+    for icono in ("hand_up.png", "brush.png"):
         shutil.copy2(TARJETAS / "icons" / icono, IMG / "icons" / icono)
-    # Mano de this/these girada 45º para que apunte en horizontal (igual que en escritorio)
-    mano = Image.open(TARJETAS / "icons" / "hand_this.png").rotate(45, resample=Image.BICUBIC, expand=True)
-    mano.crop(mano.getbbox()).save(IMG / "icons" / "hand_this_horizontal.png")
 
     # Iconos de la app: el robot delante de la bandera del Reino Unido
     for tam in (192, 512):

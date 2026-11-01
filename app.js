@@ -103,7 +103,7 @@ function cargar(src) {
 const listas = new Map();  // src -> Image ya cargada (tras precargar todo)
 async function precargar() {
   const srcs = TARJETAS.map(t => t.archivo).concat(
-    ["img/icons/hand_this_horizontal.png", "img/icons/hand_that.png", "img/icons/brush.png"]);
+    ["img/icons/hand_up.png", "img/icons/brush.png"]);
   await Promise.all(srcs.map(async s => listas.set(s, await cargar(s))));
 }
 
@@ -128,7 +128,9 @@ function dibujoTarjeta(tarjeta) {
   return lienzo;
 }
 
-/** Mano señalando + uno o dos dibujos: cerca y grandes (this/these) o lejos y pequeños (that/those). */
+/** Mesa vista desde arriba en cuatro cuadrantes: izquierda singular, derecha plural;
+ * abajo cerca (this/these), arriba lejos (that/those). Una mano abajo apunta hacia arriba
+ * desde la columna del ejercicio. Los objetos miden siempre lo mismo. */
 function componerDemostrativo(demo, tarjeta) {
   const [, , esPlural, cerca] = DEMOSTRATIVOS.find(d => d[0] === demo);
   const W = 800, H = 520;
@@ -136,32 +138,78 @@ function componerDemostrativo(demo, tarjeta) {
   lienzo.width = W;
   lienzo.height = H;
   const ctx = lienzo.getContext("2d");
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, W, H);
+  pintarMesa(ctx, W, H);
 
-  const mano = listas.get(cerca ? "img/icons/hand_this_horizontal.png" : "img/icons/hand_that.png");
-  const escMano = cerca ? W * 0.26 / mano.width : H * 0.42 / mano.height;
-  const mw = mano.width * escMano, mh = mano.height * escMano;
+  // Rejilla: deja abajo una franja para la mano
+  const m = W * 0.03, x0 = m, x1 = W - m, y0 = m, y1 = H * 0.76;
+  const xm = (x0 + x1) / 2, ym = (y0 + y1) / 2;
+  ctx.save();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+  ctx.lineWidth = 3;
+  ctx.setLineDash([14, 10]);
+  ctx.beginPath();
+  ctx.moveTo(xm, y0); ctx.lineTo(xm, y1);
+  ctx.moveTo(x0, ym); ctx.lineTo(x1, ym);
+  ctx.stroke();
+  ctx.restore();
 
-  const zx0 = cerca ? W * 0.04 + mw + W * 0.06 : W * 0.52;
-  const zx1 = cerca ? W * 0.97 : W * 0.95;
-  const maxAlto = cerca ? H * 0.55 : H * 0.28;
-  const n = esPlural ? 2 : 1, hueco = W * 0.03;
+  // Objetos (en tarjetitas blancas sobre la mesa), centrados en su cuadrante
+  const qw = xm - x0, qh = ym - y0;
   const obj = listas.get(tarjeta.archivo);
-  let esc = Math.min(((zx1 - zx0) - hueco * (n - 1)) / n / obj.width, maxAlto / obj.height);
-  if (!cerca) esc *= 0.75;  // lejos: un 25 % más pequeños
+  const esc = Math.min(qw * 0.4 / obj.width, qh * 0.76 / obj.height);
   const ow = obj.width * esc, oh = obj.height * esc;
-  let x = (zx0 + zx1 - (n * ow + (n - 1) * hueco)) / 2;
-  const y = cerca ? H - oh - H * 0.06 : H * 0.06;
-
-  // Cerca: la mano a la altura de los objetos. Lejos: abajo a la izquierda
-  const manoY = cerca ? y + (oh - mh) / 2 : H - mh - H * 0.06;
-  ctx.drawImage(mano, W * 0.04, manoY, mw, mh);
+  const n = esPlural ? 2 : 1, hueco = qw * 0.12;
+  const cx = esPlural ? (xm + x1) / 2 : (x0 + xm) / 2;
+  const cy = cerca ? (ym + y1) / 2 : (y0 + ym) / 2;
+  let x = cx - (n * ow + (n - 1) * hueco) / 2;
   for (let i = 0; i < n; i++) {
-    ctx.drawImage(obj, x, y, ow, oh);
+    tarjetita(ctx, obj, x, cy - oh / 2, ow, oh);
     x += ow + hueco;
   }
+
+  // Mano: bajo la columna del ejercicio, con la muñeca saliendo por abajo
+  const mano = listas.get("img/icons/hand_up.png");
+  const mh = H - y1 + H * 0.02, mw = mano.width * mh / mano.height;
+  ctx.drawImage(mano, cx - mw * 0.26, H - mh * 0.98, mw, mh);  // el índice está a ~26 % del ancho
   return lienzo;
+}
+
+/** Tablero de madera clara: más cálido cerca (abajo) y más pálido lejos (arriba). */
+function pintarMesa(ctx, W, H) {
+  const fondo = ctx.createLinearGradient(0, H, 0, 0);
+  fondo.addColorStop(0, "#c8935a");
+  fondo.addColorStop(1, "#ecd2ac");
+  ctx.fillStyle = fondo;
+  ctx.fillRect(0, 0, W, H);
+  // Vetas: ondas suaves, siempre las mismas
+  ctx.save();
+  ctx.strokeStyle = "rgba(120, 72, 30, 0.13)";
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 14; i++) {
+    const yb = H * (i + 0.5) / 14, fase = i * 1.7, amp = 3 + (i * 7) % 5;
+    ctx.beginPath();
+    for (let xx = 0; xx <= W; xx += 10) {
+      const yy = yb + Math.sin(xx / 90 + fase) * amp + Math.sin(xx / 23 + fase * 2) * 1.2;
+      xx ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Dibujo sobre una tarjeta blanca redondeada con sombra, como si estuviera encima de la mesa. */
+function tarjetita(ctx, img, x, y, w, h) {
+  const p = Math.min(w, h) * 0.08, r = Math.min(w, h) * 0.1;
+  ctx.save();
+  ctx.shadowColor = "rgba(60, 30, 0, 0.35)";
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 4;
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.roundRect(x - p, y - p, w + 2 * p, h + 2 * p, r);
+  ctx.fill();
+  ctx.restore();
+  ctx.drawImage(img, x, y, w, h);
 }
 
 /** n dibujos del objeto: hasta 5 en una fila; de 6 a 10, en dos filas. Mismo tamaño que los demostrativos. */

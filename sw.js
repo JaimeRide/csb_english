@@ -1,5 +1,5 @@
 // Generado por actualizar_web.py: no editar a mano
-const CACHE = "ingles-14a6ce104d";
+const CACHE = "ingles-2344c91fcc";
 const ARCHIVOS = [
  "./",
  "index.html",
@@ -32,9 +32,7 @@ const ARCHIVOS = [
  "img/classroom/color_white.png",
  "img/classroom/color_yellow.png",
  "img/icons/brush.png",
- "img/icons/hand_that.png",
- "img/icons/hand_this.png",
- "img/icons/hand_this_horizontal.png",
+ "img/icons/hand_up.png",
  "img/numbers/number_eight.png",
  "img/numbers/number_five.png",
  "img/numbers/number_four.png",
