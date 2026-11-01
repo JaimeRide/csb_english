@@ -26,11 +26,14 @@ const NIVELES_NUMEROS = {
   2: {pasos: [0], nombre: "número"},
   3: {pasos: [0, 1], nombre: "frase completa"},
 };
-const NIVELES_DEMOSTRATIVOS = {
-  1: {pasos: [1], nombre: "is / are"},
-  2: {pasos: [0], nombre: "this / that / these / those"},
-  3: {pasos: [0, 1, 2], nombre: "frase completa"},
-};
+// Apartados de demostrativos en Grammar: qué demostrativos salen y qué pasos se eligen en la prueba
+// (0 demostrativo, 1 verbo, 2 objeto; el resto ya viene puesto). Cada uno va a su nivel, sin elegirlo.
+const APARTADOS_DEMOSTRATIVOS = [
+  {clave: "thisThat", nombre: "This / that", demos: ["this", "that"], pasos: [0]},
+  {clave: "theseThose", nombre: "These / those", demos: ["these", "those"], pasos: [0]},
+  {clave: "isAre", nombre: "Is / are", demos: ["this", "these", "that", "those"], pasos: [1]},
+  {clave: "demostrativos", nombre: "Demonstratives", demos: ["this", "these", "that", "those"], pasos: [0, 1, 2]},
+];
 
 const TARJETAS = window.DATOS.tarjetas;
 
@@ -718,9 +721,12 @@ function frasesDemostrativos(tarjetas) {
   return frases;
 }
 
+/** Frases de demostrativos solo con esos demostrativos ("this", "that"...). */
+const frasesCon = (tarjetas, demos) => frasesDemostrativos(tarjetas).filter(f => demos.includes(f.demo.toLowerCase()));
+
 /** Ejercicio nuevo de demostrativos: {opciones, correctas, lienzo}. estado guarda las frases pendientes. */
-function nuevoDemostrativo(tarjetas, estado) {
-  if (!estado.frases || !estado.frases.length) estado.frases = barajar(frasesDemostrativos(tarjetas));
+function nuevoDemostrativo(tarjetas, estado, demos) {
+  if (!estado.frases || !estado.frases.length) estado.frases = barajar(frasesCon(tarjetas, demos));
   const actual = estado.frases.pop();
   // Paso 3: el objeto correcto y otra opción: el mismo objeto en el otro número
   // (the pencil / the pencils) o un objeto distinto en el mismo número
@@ -735,7 +741,7 @@ function nuevoDemostrativo(tarjetas, estado) {
   }
   return {
     // Demostrativos agrupados por cerca (This/These) y lejos (That/Those)
-    opciones: [["This", "These", "That", "Those"], ["is", "are"], barajar([actual.objeto, otro])],
+    opciones: [demos.map(capitalizar), ["is", "are"], barajar([actual.objeto, otro])],
     correctas: [actual.demo, actual.verbo, actual.objeto],
     lienzo: componerDemostrativo(actual.demo.toLowerCase(), tarjeta),
   };
@@ -756,8 +762,9 @@ function nuevoNumero(tarjetas) {
   };
 }
 
-/** Prueba de Grammar: construir la frase por pasos según el nivel y comprobarla con el robot.
- * config: {niveles, nuevo(tarjetas, estado) -> {opciones, correctas, lienzo}, clave (para recordar el nivel)}. */
+/** Prueba de Grammar: construir la frase por pasos y comprobarla con el robot.
+ * config: {nuevo(tarjetas, estado) -> {opciones, correctas, lienzo}} y, o bien pasos (fijos),
+ * o bien niveles + clave (se elige el nivel al entrar y se recuerda con esa clave). */
 class VistaFrasePrueba {
   constructor(config) {
     this.config = config;
@@ -790,9 +797,11 @@ class VistaFrasePrueba {
                     crear("div", {class: "fila-botones"}, this.robot.el, this.siguienteBtn));
   }
 
-  /** Entra con el último nivel y enseña el selector de nivel. */
+  /** Con niveles, entra con el último y enseña el selector de nivel. */
   entrar(tarjetas) {
     this.tarjetas = tarjetas;
+    this.etiquetaNivel.hidden = !this.config.niveles;
+    if (!this.config.niveles) return this.empezar(null);
     this.empezar(leerNivelGuardado(this.config.clave));
     this.elegirNivel();
   }
@@ -804,7 +813,7 @@ class VistaFrasePrueba {
   empezar(nivel) {
     this.nivel = nivel;
     this.etiquetaNivel.textContent = `Level ${nivel} ▾`;
-    this.pasos = this.config.niveles[nivel].pasos;
+    this.pasos = this.config.pasos || this.config.niveles[nivel].pasos;
     this.estado = {};
     this.aciertos = this.hechas = 0;
     this.siguiente();
@@ -968,9 +977,9 @@ function mostrarSelector(alElegir) {
 
 /* ---------- Menú y arranque ---------- */
 
-/** Frases para estudiar: las cuatro de cada objeto seguidas (this, these, that, those) para
- * ver el contraste; los objetos, en orden aleatorio. */
-const frasesParaEstudiar = tarjetas => barajar([...tarjetas]).flatMap(t => frasesDemostrativos([t]));
+/** Frases para estudiar: las de cada objeto seguidas (this, these, that, those, o solo las del
+ * apartado) para ver el contraste; los objetos, en orden aleatorio. */
+const frasesParaEstudiar = demos => tarjetas => barajar([...tarjetas]).flatMap(t => frasesCon([t], demos));
 
 /** Numbers & plurals para estudiar: de cada objeto, "One ..." y otro número al azar, seguidos. */
 const numerosParaEstudiar = tarjetas => barajar([...tarjetas]).flatMap(t =>
@@ -979,12 +988,6 @@ const numerosParaEstudiar = tarjetas => barajar([...tarjetas]).flatMap(t =>
 const vistas = {
   vocab: new VistaVocabulario(),
   listen: new VistaListening(),
-  frases: new VistaVocabulario({
-    preparar: frasesParaEstudiar,
-    dibujo: f => componerDemostrativo(f.demo.toLowerCase(), f.tarjeta),
-    texto: f => `${f.demo} ${f.verbo} ${f.objeto}`,
-    proporcion: 1.25, clase: "tarjeta-frase"}),
-  demostrativos: new VistaFrasePrueba({niveles: NIVELES_DEMOSTRATIVOS, nuevo: nuevoDemostrativo, clave: "nivel"}),
   numerosEstudio: new VistaVocabulario({
     preparar: numerosParaEstudiar,
     dibujo: c => componerNumero(c.n, c.tarjeta),
@@ -992,6 +995,15 @@ const vistas = {
     proporcion: 1.25, clase: "tarjeta-frase"}),
   numerosPrueba: new VistaFrasePrueba({niveles: NIVELES_NUMEROS, nuevo: nuevoNumero, clave: "nivel_numeros"}),
 };
+// Cada apartado de demostrativos: <clave>Estudio y <clave>Prueba
+for (const {clave, demos, pasos} of APARTADOS_DEMOSTRATIVOS) {
+  vistas[clave + "Estudio"] = new VistaVocabulario({
+    preparar: frasesParaEstudiar(demos),
+    dibujo: f => componerDemostrativo(f.demo.toLowerCase(), f.tarjeta),
+    texto: f => `${f.demo} ${f.verbo} ${f.objeto}`,
+    proporcion: 1.25, clase: "tarjeta-frase"});
+  vistas[clave + "Prueba"] = new VistaFrasePrueba({pasos, nuevo: (t, estado) => nuevoDemostrativo(t, estado, demos)});
+}
 let vistaActual = null;
 
 const menu = document.getElementById("menu");
@@ -1010,16 +1022,22 @@ function construirMenu() {
     return ia - ib || a.localeCompare(b);
   });
   const subsecciones = [[TODOS, "All"], ...tipos.map(t => [t, nombreTipo(t)])];
-  const apartados = [
-    // Cada sección tiene dos modos (iconos de la barra): estudiar y prueba
-    ["Grammar", [["demostrativos", null, "Demonstratives"], ["numeros", null, "Numbers & plurals"]]],
-    ["Vocabulary", subsecciones.map(([t, n]) => ["vocab", t, n])],
+  // Lecciones > apartados > secciones. Cada sección tiene dos modos (iconos de la barra): estudiar y prueba
+  const lecciones = [
+    ["Lesson 1", [
+      ["Grammar", [...APARTADOS_DEMOSTRATIVOS.map(a => [a.clave, null, a.nombre]),
+                   ["numeros", null, "Numbers & plurals"]]],
+      ["Vocabulary", subsecciones.map(([t, n]) => ["vocab", t, n])],
+    ]],
   ];
-  for (const [titulo, opciones] of apartados) {
-    menu.append(crear("h2", {}, titulo));
-    for (const [vista, tipo, nombre] of opciones) {
-      const b = crear("button", {onclick: () => abrirSeccion(vista, tipo, `${titulo} · ${nombre}`, b)}, nombre);
-      menu.append(b);
+  for (const [leccion, apartados] of lecciones) {
+    menu.append(crear("h2", {class: "leccion"}, leccion));
+    for (const [titulo, opciones] of apartados) {
+      menu.append(crear("h3", {}, titulo));
+      for (const [vista, tipo, nombre] of opciones) {
+        const b = crear("button", {onclick: () => abrirSeccion(vista, tipo, `${titulo} · ${nombre}`, b)}, nombre);
+        menu.append(b);
+      }
     }
   }
   // Abajo del todo: elegir otro asistente (otra voz)
@@ -1048,7 +1066,8 @@ const SVG_BANDERA = (() => {
 // Modos de cada sección: [vista, icono, nombre]; el primero es con el que se abre
 const MODOS = {
   vocab: [["vocab", SVG_LIBRO, "Estudiar"], ["listen", SVG_BANDERA, "Prueba de listening"]],
-  demostrativos: [["frases", SVG_LIBRO, "Estudiar"], ["demostrativos", SVG_BANDERA, "Prueba"]],
+  ...Object.fromEntries(APARTADOS_DEMOSTRATIVOS.map(({clave}) =>
+    [clave, [[clave + "Estudio", SVG_LIBRO, "Estudiar"], [clave + "Prueba", SVG_BANDERA, "Prueba"]]])),
   numeros: [["numerosEstudio", SVG_LIBRO, "Estudiar"], ["numerosPrueba", SVG_BANDERA, "Prueba"]],
 };
 
@@ -1061,7 +1080,7 @@ function abrirSeccion(vista, tipo, titulo, boton) {
   menu.querySelectorAll("button").forEach(b => b.classList.toggle("activo", b === boton));
   document.getElementById("titulo").textContent = titulo;
   // Grammar usa los objetos de clase (en números, sin los que solo tienen plural: "one scissors")
-  tarjetasSeccion = vista === "demostrativos" ? TARJETAS.filter(t => t.tipo === "classroom")
+  tarjetasSeccion = APARTADOS_DEMOSTRATIVOS.some(a => a.clave === vista) ? TARJETAS.filter(t => t.tipo === "classroom")
     : vista === "numeros" ? TARJETAS.filter(t => t.tipo === "classroom" && !SOLO_PLURAL.has(t.nombre))
     : TARJETAS.filter(t => tipo === TODOS || t.tipo === tipo);
   modosBarra.replaceChildren(...MODOS[vista].map(([modo, icono, nombre]) => {
