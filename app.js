@@ -1031,18 +1031,32 @@ function construirMenu() {
     ]],
   ];
   for (const [leccion, apartados] of lecciones) {
-    menu.append(crear("h2", {class: "leccion"}, leccion));
+    // La lección se pliega y despliega tocando su nombre (se recuerda en el móvil)
+    const contenido = crear("div", {class: "contenido-leccion"});
+    const cabecera = crear("button", {class: "leccion", "aria-expanded": "true",
+                                      onclick: () => plegarLeccion(leccion, cabecera, contenido)}, leccion);
+    menu.append(cabecera, contenido);
     for (const [titulo, opciones] of apartados) {
-      menu.append(crear("h3", {}, titulo));
+      contenido.append(crear("h3", {}, titulo));
       for (const [vista, tipo, nombre] of opciones) {
         const b = crear("button", {onclick: () => abrirSeccion(vista, tipo, `${titulo} · ${nombre}`, b)}, nombre);
-        menu.append(b);
+        contenido.append(b);
       }
     }
+    let plegada = false;
+    try { plegada = localStorage.getItem("plegada:" + leccion) === "1"; } catch { /* sin almacenamiento */ }
+    if (plegada) plegarLeccion(leccion, cabecera, contenido);
   }
   // Abajo del todo: elegir otro asistente (otra voz)
   menu.append(crear("div", {class: "menu-pie"}, crear("h2", {}, "Assistant"),
               crear("button", {onclick: () => { abrirMenu(false); mostrarSelector(); }}, "Change assistant")));
+}
+
+function plegarLeccion(leccion, cabecera, contenido) {
+  const plegada = !contenido.hidden;
+  contenido.hidden = plegada;
+  cabecera.setAttribute("aria-expanded", String(!plegada));
+  try { localStorage.setItem("plegada:" + leccion, plegada ? "1" : "0"); } catch { /* sin almacenamiento */ }
 }
 
 /* Iconos de la barra para los modos de Vocabulary: libro (estudiar) y bandera de cuadros (prueba) */
